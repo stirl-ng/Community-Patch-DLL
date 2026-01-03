@@ -75,6 +75,218 @@
 namespace
 {
 #if defined(_WIN32)
+	// Minimal JSON parser for protocol messages
+	class JsonValue
+	{
+	public:
+		enum Type { Null, String, Number, Object, Array, Boolean };
+
+		Type type;
+		std::string strValue;
+		double numValue;
+		std::map<std::string, JsonValue> objValue;
+		std::vector<JsonValue> arrValue;
+
+		JsonValue() : type(Null), numValue(0.0) {}
+
+		bool isString() const { return type == String; }
+		bool isNumber() const { return type == Number; }
+		bool isObject() const { return type == Object; }
+		bool isArray() const { return type == Array; }
+		bool isBool() const { return type == Boolean; }
+
+		std::string asString(const std::string& def = "") const {
+			return type == String ? strValue : def;
+		}
+
+		int asInt(int def = 0) const {
+			return type == Number ? static_cast<int>(numValue) : def;
+		}
+
+		double asDouble(double def = 0.0) const {
+			return type == Number ? numValue : def;
+		}
+
+		bool asBool(bool def = false) const {
+			return type == Boolean ? (numValue != 0.0) : def;
+		}
+
+		bool has(const std::string& key) const {
+			return type == Object && objValue.find(key) != objValue.end();
+		}
+
+		const JsonValue& get(const std::string& key) const {
+			static JsonValue nullValue;
+			if (type != Object) return nullValue;
+			std::map<std::string, JsonValue>::const_iterator it = objValue.find(key);
+			return (it != objValue.end()) ? it->second : nullValue;
+		}
+
+		const JsonValue& operator[](size_t idx) const {
+			static JsonValue nullValue;
+			return (type == Array && idx < arrValue.size()) ? arrValue[idx] : nullValue;
+		}
+
+		size_t size() const {
+			return type == Array ? arrValue.size() : 0;
+		}
+	};
+
+	class JsonParser
+	{
+	private:
+		const char* p;
+
+		void skipWhitespace() {
+			while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) p++;
+		}
+
+		bool parseString(std::string& out) {
+			if (*p != '"') return false;
+			p++;
+			out.clear();
+			while (*p && *p != '"') {
+				if (*p == '\\') {
+					p++;
+					if (*p == 'n') out += '\n';
+					else if (*p == 't') out += '\t';
+					else if (*p == 'r') out += '\r';
+					else if (*p == '"') out += '"';
+					else if (*p == '\\') out += '\\';
+					else out += *p;
+					p++;
+				} else {
+					out += *p++;
+				}
+			}
+			if (*p != '"') return false;
+			p++;
+			return true;
+		}
+
+		bool parseNumber(double& out) {
+			char* end;
+			out = strtod(p, &end);
+			if (end == p) return false;
+			p = end;
+			return true;
+		}
+
+		bool parseValue(JsonValue& val);
+
+		bool parseObject(JsonValue& val) {
+			if (*p != '{') return false;
+			p++;
+			val.type = JsonValue::Object;
+			val.objValue.clear();
+
+			skipWhitespace();
+			if (*p == '}') {
+				p++;
+				return true;
+			}
+
+			while (true) {
+				skipWhitespace();
+				std::string key;
+				if (!parseString(key)) return false;
+
+				skipWhitespace();
+				if (*p != ':') return false;
+				p++;
+
+				JsonValue value;
+				if (!parseValue(value)) return false;
+				val.objValue[key] = value;
+
+				skipWhitespace();
+				if (*p == ',') {
+					p++;
+					continue;
+				}
+				if (*p == '}') {
+					p++;
+					return true;
+				}
+				return false;
+			}
+		}
+
+		bool parseArray(JsonValue& val) {
+			if (*p != '[') return false;
+			p++;
+			val.type = JsonValue::Array;
+			val.arrValue.clear();
+
+			skipWhitespace();
+			if (*p == ']') {
+				p++;
+				return true;
+			}
+
+			while (true) {
+				JsonValue elem;
+				if (!parseValue(elem)) return false;
+				val.arrValue.push_back(elem);
+
+				skipWhitespace();
+				if (*p == ',') {
+					p++;
+					continue;
+				}
+				if (*p == ']') {
+					p++;
+					return true;
+				}
+				return false;
+			}
+		}
+
+	public:
+		bool parse(const std::string& json, JsonValue& out) {
+			p = json.c_str();
+			return parseValue(out);
+		}
+	};
+
+	bool JsonParser::parseValue(JsonValue& val) {
+		skipWhitespace();
+
+		if (*p == '"') {
+			val.type = JsonValue::String;
+			return parseString(val.strValue);
+		}
+		if (*p == '{') {
+			return parseObject(val);
+		}
+		if (*p == '[') {
+			return parseArray(val);
+		}
+		if (*p == '-' || (*p >= '0' && *p <= '9')) {
+			val.type = JsonValue::Number;
+			return parseNumber(val.numValue);
+		}
+		if (strncmp(p, "true", 4) == 0) {
+			val.type = JsonValue::Boolean;
+			val.numValue = 1.0;
+			p += 4;
+			return true;
+		}
+		if (strncmp(p, "false", 5) == 0) {
+			val.type = JsonValue::Boolean;
+			val.numValue = 0.0;
+			p += 5;
+			return true;
+		}
+		if (strncmp(p, "null", 4) == 0) {
+			val.type = JsonValue::Null;
+			p += 4;
+			return true;
+		}
+		return false;
+	}
+
+	// Legacy text-based command format (kept for compatibility)
 	struct PipeCommand
 	{
 		std::string verb;
@@ -1119,6 +1331,108 @@ void CvGame::EnsureGameStatePipe(const char* context)
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
 #if defined(_WIN32)
+	// Try parsing as JSON first (new protocol)
+	JsonValue msg;
+	JsonParser parser;
+	if (parser.parse(commandLine, msg) && msg.isObject())
+	{
+		// Handle JSON protocol messages
+		std::string msgType = msg.get("type").asString();
+
+		if (msgType == "action")
+		{
+			// Execute action and return action_result
+			std::string requestId = msg.get("request_id").asString();
+			const JsonValue& action = msg.get("action");
+			std::string kind = action.get("kind").asString();
+
+			std::ostringstream os;
+			os << "{\"type\":\"action_result\",\"request_id\":\"" << JsonEscape(requestId) << "\"";
+
+			if (kind == "move_unit")
+			{
+				int unitId = action.get("unit_id").asInt();
+				const JsonValue& toArray = action.get("to");
+				if (toArray.isArray() && toArray.size() >= 2)
+				{
+					int targetX = toArray[0].asInt();
+					int targetY = toArray[1].asInt();
+
+					// Find unit
+					CvUnit* pUnit = NULL;
+					PlayerTypes owner = NO_PLAYER;
+					for (int iPlayer = 0; iPlayer < MAX_PLAYERS; ++iPlayer)
+					{
+						CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)iPlayer);
+						pUnit = kPlayer.getUnit(unitId);
+						if (pUnit != NULL)
+						{
+							owner = (PlayerTypes)iPlayer;
+							break;
+						}
+					}
+
+					if (pUnit != NULL)
+					{
+						CvPlot* pTargetPlot = GC.getMap().plot(targetX, targetY);
+						if (pTargetPlot != NULL)
+						{
+							pUnit->ClearMissionQueue();
+							pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), targetX, targetY, 0, false, false, NO_MISSIONAI, pTargetPlot);
+
+							os << ",\"success\":true,\"result\":{\"message\":\"Unit moved\"}";
+							os << ",\"state_delta\":{\"units\":[{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << ",\"moves_remaining\":" << pUnit->getMoves() << "}]}";
+						}
+						else
+						{
+							os << ",\"success\":false,\"error\":{\"code\":\"INVALID_PLOT\",\"message\":\"Target plot invalid\"}";
+						}
+					}
+					else
+					{
+						os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_FOUND\",\"message\":\"Unit not found\"}";
+					}
+				}
+				else
+				{
+					os << ",\"success\":false,\"error\":{\"code\":\"INVALID_COORDINATES\",\"message\":\"Missing or invalid 'to' array\"}";
+				}
+			}
+			else
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"UNKNOWN_ACTION\",\"message\":\"Action kind not implemented: " << JsonEscape(kind) << "\"}";
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_state")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			// TODO: Build full game state
+			std::ostringstream os;
+			os << "{\"type\":\"state_refresh\",\"request_id\":\"" << JsonEscape(requestId) << "\"";
+			os << ",\"state\":{\"turn\":" << getGameTurn() << ",\"placeholder\":true}}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "end_turn")
+		{
+			std::ostringstream os;
+			os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+
+		// Unknown message type
+		std::ostringstream os;
+		os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << JsonEscape(msgType) << "\"}";
+		m_kGameStatePipe.SendLine(os.str());
+		return;
+	}
+
+	// Fall back to legacy text-based command format
 	struct PipeCommandHelper
 	{
 		GameStatePipe& pipe;

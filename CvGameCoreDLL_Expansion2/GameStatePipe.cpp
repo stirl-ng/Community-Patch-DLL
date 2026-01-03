@@ -23,7 +23,7 @@ extern "C" __declspec(dllimport) int __stdcall SHCreateDirectoryExA(HWND hwnd, L
 namespace
 {
 #if defined(_WIN32)
-	const char* GAME_STATE_PIPE_NAME = "\\\\.\\pipe\\CivVPGameState";
+	const char* GAME_STATE_PIPE_NAME = "\\\\.\\pipe\\civv_llm";
 	const char* GAME_STATE_PIPE_LOG_DIR = "\\My Games\\Sid Meier's Civilization 5\\Logs\\LLMCiv";
 	const char* GAME_STATE_PIPE_LOG_FILE = "\\game_state_pipe.log";
 
@@ -184,13 +184,20 @@ void GameStatePipe::SendTurnData(const CvGame& game)
 	}
 
 	std::ostringstream payload;
-	payload << "{ \"turn\": " << game.getGameTurn();
-	payload << ", \"playersAlive\": " << game.countCivPlayersAlive();
-	payload << ", \"civsEver\": " << game.countCivPlayersEverAlive();
-	payload << " }\n";
+
+	// Send turn_start message according to protocol
+	payload << "{\"type\":\"turn_start\"";
+	payload << ",\"player_id\":0";  // TODO: Determine actual LLM player ID
+	payload << ",\"turn\":" << game.getGameTurn();
+	payload << ",\"state\":{";
+	payload << "\"turn\":" << game.getGameTurn();
+	payload << ",\"playersAlive\":" << game.countCivPlayersAlive();
+	payload << ",\"civsEver\":" << game.countCivPlayersEverAlive();
+	// TODO: Add more state fields (cities, units, tech, etc.)
+	payload << "}}\n";
 
 	const std::string data = payload.str();
-	LogMessage("GameStatePipe: sending turn payload for turn %d (%zu bytes): %s", game.getGameTurn(), data.size(), data.c_str());
+	LogMessage("GameStatePipe: sending turn_start for turn %d (%zu bytes)", game.getGameTurn(), data.size());
 	if (!WriteBytes(data.c_str(), data.size()))
 	{
 		LogMessage("GameStatePipe: write failed for turn %d", game.getGameTurn());
