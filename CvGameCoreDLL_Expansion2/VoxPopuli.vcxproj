@@ -106,7 +106,7 @@
       <PrecompiledHeaderFile>CvGameCoreDLLPCH.h</PrecompiledHeaderFile>
       <Optimization>Full</Optimization>
       <AdditionalOptions>/Zm300 %(AdditionalOptions)</AdditionalOptions>
-      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
@@ -119,6 +119,7 @@
       <ModuleDefinitionFile>$(ProjectDir)CvGameCoreDLL.def</ModuleDefinitionFile>
       <ShowProgress>LinkVerbose</ShowProgress>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <LinkStatus>Yes</LinkStatus>
     </Link>
     <PreBuildEvent>
       <Command>..\update_commit_id.bat</Command>
@@ -460,6 +461,10 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CvGameCoreDLLPCH.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="CvGameTextMgr.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CvGameCoreDLLPCH.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="GameStatePipe.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CvGameCoreDLLPCH.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -856,6 +861,7 @@
     <ClInclude Include="CvGameCoreUtils.h" />
     <ClInclude Include="CvGameQueries.h" />
     <ClInclude Include="CvGameTextMgr.h" />
+    <ClInclude Include="GameStatePipe.h" />
     <ClInclude Include="CvGlobals.h" />
     <ClInclude Include="CvGoodyHuts.h" />
     <ClInclude Include="CvGrandStrategyAI.h" />

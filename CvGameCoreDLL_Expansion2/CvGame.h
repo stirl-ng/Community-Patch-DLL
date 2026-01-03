@@ -19,6 +19,8 @@
 #include "CvDistanceMap.h"
 #include "CvDealClasses.h"
 #include "CvEnumMap.h"
+#include "GameStatePipe.h"
+#include <string>
 
 class CvPlot;
 class CvCity;
@@ -64,6 +66,7 @@ public:
 	void uninit();
 
 	void DoGameStarted();
+	void HandlePipeCommand(const std::string& commandLine);
 
 	void update();
 	void updateScore(bool bForce = false);
@@ -956,6 +959,8 @@ protected:
 	CvGameDeals                m_kGameDeals;
 	CvGameCorporations*		   m_pGameCorporations;
 	CvGameContracts*		   m_pGameContracts;
+	GameStatePipe              m_kGameStatePipe;
+	bool					   m_bGameStatePipeInitialized;
 
 	//necessary because we only want to hide the mouseover of the most recently moused over unit -KS
 	int                        m_iLastMouseoverUnitID;
@@ -988,6 +993,7 @@ protected:
 	void setInitialItems(CvGameInitialItemsOverrides& kInitialItemOverrides);
 	void CheckGenerateArchaeology();
 	void regenerateMap();
+	void EnsureGameStatePipe(const char* context = NULL);
 
 	void testExtendedGame();
 
