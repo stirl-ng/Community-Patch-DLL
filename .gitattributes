@@ -10,3 +10,5 @@
 *.lua		eol=crlf
 *.xml		eol=crlf
 *.sql		eol=crlf
+*.md		eol=lf
+
