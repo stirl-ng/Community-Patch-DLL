@@ -38,8 +38,6 @@
 #include "cvStopWatch.h"
 #include "CvUnitMission.h"
 #include <algorithm>
-#include <cctype>
-#include <cstdlib>
 #include <map>
 #include <sstream>
 #include <vector>
@@ -286,61 +284,6 @@ namespace
 		return false;
 	}
 
-	// Legacy text-based command format (kept for compatibility)
-	struct PipeCommand
-	{
-		std::string verb;
-		std::map<std::string, std::string> args;
-	};
-
-	std::vector<std::string> TokenizeCommandLine(const std::string& line)
-	{
-		std::vector<std::string> tokens;
-		std::istringstream stream(line);
-		std::string token;
-		while (stream >> token)
-		{
-			tokens.push_back(token);
-		}
-		return tokens;
-	}
-
-	bool ParsePipeCommand(const std::string& line, PipeCommand& outCommand)
-	{
-		std::vector<std::string> tokens = TokenizeCommandLine(line);
-		if (tokens.empty())
-		{
-			return false;
-		}
-
-		outCommand.verb = tokens[0];
-		outCommand.args.clear();
-
-		for (size_t i = 1; i < tokens.size(); ++i)
-		{
-			const size_t delimiter = tokens[i].find('=');
-			if (delimiter != std::string::npos && delimiter > 0)
-			{
-				const std::string key = tokens[i].substr(0, delimiter);
-				const std::string value = tokens[i].substr(delimiter + 1);
-				outCommand.args[key] = value;
-			}
-		}
-		return true;
-	}
-
-	bool TryGetIntArg(const PipeCommand& command, const char* key, int& outValue)
-	{
-		std::map<std::string, std::string>::const_iterator it = command.args.find(key);
-		if (it == command.args.end())
-		{
-			return false;
-		}
-
-		outValue = atoi(it->second.c_str());
-		return true;
-	}
-
 	std::string JsonEscape(const std::string& value)
 	{
 		std::string escaped;
@@ -370,6 +313,43 @@ namespace
 			}
 		}
 		return escaped;
+	}
+
+	const char* GetEndTurnBlockingTypeName(EndTurnBlockingTypes eType)
+	{
+		switch (eType)
+		{
+		case NO_ENDTURN_BLOCKING_TYPE: return "NO_ENDTURN_BLOCKING_TYPE";
+		case ENDTURN_BLOCKING_POLICY: return "ENDTURN_BLOCKING_POLICY";
+		case ENDTURN_BLOCKING_RESEARCH: return "ENDTURN_BLOCKING_RESEARCH";
+		case ENDTURN_BLOCKING_PRODUCTION: return "ENDTURN_BLOCKING_PRODUCTION";
+		case ENDTURN_BLOCKING_UNITS: return "ENDTURN_BLOCKING_UNITS";
+		case ENDTURN_BLOCKING_DIPLO_VOTE: return "ENDTURN_BLOCKING_DIPLO_VOTE";
+		case ENDTURN_BLOCKING_MINOR_QUEST: return "ENDTURN_BLOCKING_MINOR_QUEST";
+		case ENDTURN_BLOCKING_FREE_TECH: return "ENDTURN_BLOCKING_FREE_TECH";
+		case ENDTURN_BLOCKING_STACKED_UNITS: return "ENDTURN_BLOCKING_STACKED_UNITS";
+		case ENDTURN_BLOCKING_UNIT_NEEDS_ORDERS: return "ENDTURN_BLOCKING_UNIT_NEEDS_ORDERS";
+		case ENDTURN_BLOCKING_UNIT_PROMOTION: return "ENDTURN_BLOCKING_UNIT_PROMOTION";
+		case ENDTURN_BLOCKING_CITY_RANGE_ATTACK: return "ENDTURN_BLOCKING_CITY_RANGE_ATTACK";
+		case ENDTURN_BLOCKING_FREE_POLICY: return "ENDTURN_BLOCKING_FREE_POLICY";
+		case ENDTURN_BLOCKING_FREE_ITEMS: return "ENDTURN_BLOCKING_FREE_ITEMS";
+		case ENDTURN_BLOCKING_FOUND_PANTHEON: return "ENDTURN_BLOCKING_FOUND_PANTHEON";
+		case ENDTURN_BLOCKING_FOUND_RELIGION: return "ENDTURN_BLOCKING_FOUND_RELIGION";
+		case ENDTURN_BLOCKING_ENHANCE_RELIGION: return "ENDTURN_BLOCKING_ENHANCE_RELIGION";
+		case ENDTURN_BLOCKING_STEAL_TECH: return "ENDTURN_BLOCKING_STEAL_TECH";
+		case ENDTURN_BLOCKING_MAYA_LONG_COUNT: return "ENDTURN_BLOCKING_MAYA_LONG_COUNT";
+		case ENDTURN_BLOCKING_FAITH_GREAT_PERSON: return "ENDTURN_BLOCKING_FAITH_GREAT_PERSON";
+		case ENDTURN_BLOCKING_ADD_REFORMATION_BELIEF: return "ENDTURN_BLOCKING_ADD_REFORMATION_BELIEF";
+		case ENDTURN_BLOCKING_LEAGUE_CALL_FOR_PROPOSALS: return "ENDTURN_BLOCKING_LEAGUE_CALL_FOR_PROPOSALS";
+		case ENDTURN_BLOCKING_CHOOSE_ARCHAEOLOGY: return "ENDTURN_BLOCKING_CHOOSE_ARCHAEOLOGY";
+		case ENDTURN_BLOCKING_LEAGUE_CALL_FOR_VOTES: return "ENDTURN_BLOCKING_LEAGUE_CALL_FOR_VOTES";
+		case ENDTURN_BLOCKING_CHOOSE_IDEOLOGY: return "ENDTURN_BLOCKING_CHOOSE_IDEOLOGY";
+		case ENDTURN_BLOCKING_CITY_TILE: return "ENDTURN_BLOCKING_CITY_TILE";
+		case ENDTURN_BLOCKING_PENDING_DEAL: return "ENDTURN_BLOCKING_PENDING_DEAL";
+		case ENDTURN_BLOCKING_EVENT_CHOICE: return "ENDTURN_BLOCKING_EVENT_CHOICE";
+		case ENDTURN_BLOCKING_CHOOSE_CITY_FATE: return "ENDTURN_BLOCKING_CHOOSE_CITY_FATE";
+		default: return "UNKNOWN_BLOCKING_TYPE";
+		}
 	}
 #endif
 }
@@ -1419,8 +1399,71 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		}
 		else if (msgType == "end_turn")
 		{
+			// End the current player's turn
 			std::ostringstream os;
-			os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << "}";
+			
+			PlayerTypes activePlayer = getActivePlayer();
+			CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
+			
+			// Check if we can end the turn
+			if (!GC.GetEngineUserInterface()->canEndTurn())
+			{
+				// Get blocking type information
+				EndTurnBlockingTypes eBlockingType = kActivePlayer.GetEndTurnBlockingType();
+				int iNotificationIndex = kActivePlayer.GetEndTurnBlockingNotificationIndex();
+				
+				os << "{\"type\":\"error\",\"code\":\"CANNOT_END_TURN\",\"message\":\"Cannot end turn at this time\"";
+				os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlockingType) << "\"";
+				os << ",\"blocking_type_id\":" << static_cast<int>(eBlockingType);
+				if (iNotificationIndex >= 0)
+				{
+					os << ",\"notification_index\":" << iNotificationIndex;
+				}
+				os << "}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
+			{
+				os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			// Call Lua hook if enabled
+			if (MOD_EVENTS_RED_TURN)
+			{
+				ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
+				if(pkScriptSystem)
+				{	
+					CvLuaArgsHandle args;
+					args->Push(activePlayer);
+					bool bResult = false;
+					LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
+				}
+			}
+			
+			// Handle achievements
+			if (MOD_ENABLE_ACHIEVEMENTS)
+			{
+				kActivePlayer.GetPlayerAchievements().EndTurn();
+			}
+			
+			// Actually end the turn
+			gDLL->sendTurnComplete();
+			
+			// Handle achievements post-turn
+			if (MOD_ENABLE_ACHIEVEMENTS)
+			{
+				CvAchievementUnlocker::EndTurn();
+			}
+			
+			// Reset UI mode
+			GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
+			
+			// Send success response
+			os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
@@ -1432,278 +1475,10 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		return;
 	}
 
-	// Fall back to legacy text-based command format
-	struct PipeCommandHelper
-	{
-		GameStatePipe& pipe;
-		const PipeCommand& command;
-		CvGame& game;
-
-		PipeCommandHelper(GameStatePipe& p, const PipeCommand& c, CvGame& g) : pipe(p), command(c), game(g) {}
-
-		void sendError(const char* code, const std::string& detail)
-		{
-			std::ostringstream os;
-			os << "{ \"response\": \"error\", \"code\": \"" << code << "\", \"message\": \"" << JsonEscape(detail) << "\" }";
-			pipe.SendLine(os.str());
-		}
-
-		void sendSuccess(const std::string& payload)
-		{
-			pipe.SendLine(payload);
-		}
-
-		bool resolvePlayerFromArgs(PlayerTypes& outPlayer)
-		{
-			int playerIdx = -1;
-			if (TryGetIntArg(command, "player", playerIdx))
-			{
-				if (playerIdx < 0 || playerIdx >= MAX_PLAYERS)
-				{
-					sendError("invalid_player", "player argument out of range");
-					return false;
-				}
-
-				outPlayer = static_cast<PlayerTypes>(playerIdx);
-				return true;
-			}
-
-			outPlayer = game.getActivePlayer();
-			return true;
-		}
-
-		bool findUnitById(int unitId, PlayerTypes hintPlayer, CvUnit*& outUnit, PlayerTypes& outOwner)
-		{
-			outUnit = NULL;
-			outOwner = NO_PLAYER;
-
-			if (hintPlayer != NO_PLAYER)
-			{
-				CvPlayer& kHintPlayer = GET_PLAYER(hintPlayer);
-				outUnit = kHintPlayer.getUnit(unitId);
-				if (outUnit != NULL)
-				{
-					outOwner = hintPlayer;
-					return true;
-				}
-			}
-
-			for (int iPlayer = 0; iPlayer < MAX_PLAYERS; ++iPlayer)
-			{
-				PlayerTypes eLoopPlayer = static_cast<PlayerTypes>(iPlayer);
-				if (eLoopPlayer == hintPlayer)
-				{
-					continue;
-				}
-
-				CvPlayer& kLoopPlayer = GET_PLAYER(eLoopPlayer);
-				outUnit = kLoopPlayer.getUnit(unitId);
-				if (outUnit != NULL)
-				{
-					outOwner = eLoopPlayer;
-					return true;
-				}
-			}
-
-			outUnit = NULL;
-			outOwner = NO_PLAYER;
-			return false;
-		}
-	};
-
-	PipeCommand command;
-	if (!ParsePipeCommand(commandLine, command))
-	{
-		GameStatePipe& pipe = m_kGameStatePipe;
-		std::ostringstream os;
-		os << "{ \"response\": \"error\", \"code\": \"parse_error\", \"message\": \"Unable to parse command\" }";
-		pipe.SendLine(os.str());
-		return;
-	}
-
-	PipeCommandHelper helper(m_kGameStatePipe, command, *this);
-
-	const std::string commandName = command.verb;
-	if (commandName == "list_units")
-	{
-		PlayerTypes ePlayer = NO_PLAYER;
-		if (!helper.resolvePlayerFromArgs(ePlayer))
-		{
-			return;
-		}
-
-		std::ostringstream os;
-		os << "{ \"response\": \"list_units\", \"player\": " << ePlayer << ", \"units\": [";
-
-		int iterIdx = 0;
-		bool first = true;
-		int unitCount = 0;
-		for (CvUnit* pUnit = GET_PLAYER(ePlayer).firstUnit(&iterIdx); pUnit != NULL; pUnit = GET_PLAYER(ePlayer).nextUnit(&iterIdx))
-		{
-			if (!first)
-			{
-				os << ", ";
-			}
-
-			const CvUnitEntry* pkEntry = GC.getUnitInfo(pUnit->getUnitType());
-			const char* typeName = (pkEntry != NULL) ? pkEntry->GetType() : "UNKNOWN";
-
-			os << "{ \"id\": " << pUnit->GetID()
-			   << ", \"type\": \"" << typeName << "\""
-			   << ", \"x\": " << pUnit->getX()
-			   << ", \"y\": " << pUnit->getY()
-			   << ", \"moves\": " << pUnit->getMoves()
-			   << " }";
-
-			first = false;
-			++unitCount;
-		}
-
-		os << " ], \"count\": " << unitCount << " }";
-		helper.sendSuccess(os.str());
-		return;
-	}
-	else if (commandName == "move_unit")
-	{
-		int unitId = 0;
-		int targetX = 0;
-		int targetY = 0;
-
-		if (!TryGetIntArg(command, "unit_id", unitId))
-		{
-			helper.sendError("missing_unit_id", "move_unit requires unit_id");
-			return;
-		}
-
-		if (!TryGetIntArg(command, "x", targetX) || !TryGetIntArg(command, "y", targetY))
-		{
-			helper.sendError("missing_coordinates", "move_unit requires x and y arguments");
-			return;
-		}
-
-		PlayerTypes hintPlayer = NO_PLAYER;
-		int playerIdx = -1;
-		if (TryGetIntArg(command, "player", playerIdx))
-		{
-			if (playerIdx < 0 || playerIdx >= MAX_PLAYERS)
-			{
-				helper.sendError("invalid_player", "player argument out of range");
-				return;
-			}
-
-			hintPlayer = static_cast<PlayerTypes>(playerIdx);
-		}
-
-		CvUnit* pUnit = NULL;
-		PlayerTypes owner = hintPlayer;
-		if (!helper.findUnitById(unitId, hintPlayer, pUnit, owner) || pUnit == NULL)
-		{
-			helper.sendError("unit_not_found", "Unable to locate unit with requested id");
-			return;
-		}
-
-		CvPlot* pTargetPlot = GC.getMap().plot(targetX, targetY);
-		if (pTargetPlot == NULL)
-		{
-			helper.sendError("invalid_plot", "Target plot is invalid");
-			return;
-		}
-
-		pUnit->ClearMissionQueue();
-		pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), targetX, targetY, 0, false, false, NO_MISSIONAI, pTargetPlot);
-
-		std::ostringstream os;
-		os << "{ \"response\": \"move_unit\", \"unit_id\": " << unitId << ", \"player\": " << owner << ", \"x\": " << targetX << ", \"y\": " << targetY << ", \"status\": \"queued\" }";
-		helper.sendSuccess(os.str());
-		m_kGameStatePipe.SendTurnData(*this);
-		return;
-	}
-	else if (commandName == "unit_action")
-	{
-		int unitId = 0;
-		if (!TryGetIntArg(command, "unit_id", unitId))
-		{
-			helper.sendError("missing_unit_id", "unit_action requires unit_id");
-			return;
-		}
-
-		std::map<std::string, std::string>::const_iterator actionIt = command.args.find("action");
-		if (actionIt == command.args.end())
-		{
-			helper.sendError("missing_action", "unit_action requires action argument");
-			return;
-		}
-
-		std::string actionName = actionIt->second;
-		std::transform(actionName.begin(), actionName.end(), actionName.begin(), ::tolower);
-
-		PlayerTypes hintPlayer = NO_PLAYER;
-		int playerIdx = -1;
-		if (TryGetIntArg(command, "player", playerIdx))
-		{
-			if (playerIdx < 0 || playerIdx >= MAX_PLAYERS)
-			{
-				helper.sendError("invalid_player", "player argument out of range");
-				return;
-			}
-
-			hintPlayer = static_cast<PlayerTypes>(playerIdx);
-		}
-
-		CvUnit* pUnit = NULL;
-		PlayerTypes owner = hintPlayer;
-		if (!helper.findUnitById(unitId, hintPlayer, pUnit, owner) || pUnit == NULL)
-		{
-			helper.sendError("unit_not_found", "Unable to locate unit with requested id");
-			return;
-		}
-
-		MissionTypes missionToPush = NO_MISSION;
-		if (actionName == "sleep")
-		{
-			missionToPush = CvTypes::getMISSION_SLEEP();
-		}
-		else if (actionName == "fortify")
-		{
-			missionToPush = CvTypes::getMISSION_FORTIFY();
-		}
-		else if (actionName == "alert")
-		{
-			missionToPush = CvTypes::getMISSION_ALERT();
-		}
-		else if (actionName == "skip")
-		{
-			missionToPush = CvTypes::getMISSION_SKIP();
-		}
-		else if (actionName == "heal")
-		{
-			missionToPush = CvTypes::getMISSION_HEAL();
-		}
-		else if (actionName == "explore")
-		{
-			pUnit->Automate(AUTOMATE_EXPLORE);
-			std::ostringstream os;
-			os << "{ \"response\": \"unit_action\", \"unit_id\": " << unitId << ", \"player\": " << owner << ", \"action\": \"" << actionName << "\", \"status\": \"queued\" }";
-			helper.sendSuccess(os.str());
-			m_kGameStatePipe.SendTurnData(*this);
-			return;
-		}
-		else
-		{
-			helper.sendError("unknown_action", "Unsupported action for unit_action");
-			return;
-		}
-
-		pUnit->PushMission(missionToPush);
-
-		std::ostringstream os;
-		os << "{ \"response\": \"unit_action\", \"unit_id\": " << unitId << ", \"player\": " << owner << ", \"action\": \"" << actionName << "\", \"status\": \"queued\" }";
-		helper.sendSuccess(os.str());
-		m_kGameStatePipe.SendTurnData(*this);
-		return;
-	}
-
-	helper.sendError("unknown_command", "Command not recognized");
+	// Invalid JSON or not a JSON object
+	std::ostringstream os;
+	os << "{\"type\":\"error\",\"code\":\"INVALID_JSON\",\"message\":\"Command must be a valid JSON object\"}";
+	m_kGameStatePipe.SendLine(os.str());
 #else
 	UNUSED_VARIABLE(commandLine);
 #endif
@@ -9117,6 +8892,10 @@ void CvGame::doTurn()
 	//-------------------------------------------------------------
 	// old turn ends here, new turn starts
 	//-------------------------------------------------------------
+
+	// Send turn completion data before incrementing turn
+	EnsureGameStatePipe("CvGame::doTurn::SendTurnComplete");
+	m_kGameStatePipe.SendTurnComplete(*this);
 
 	OutputDebugString(CvString::format("Turn\t%03i\tTime\t%012u\tThread\t%d\n", getGameTurn(), GetTickCount(), GetCurrentThreadId()));
 	incrementGameTurn();

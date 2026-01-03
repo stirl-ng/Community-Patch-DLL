@@ -15,6 +15,7 @@ public:
 	void Initialize();
 	void Shutdown(const char* context = NULL);
 	void SendTurnData(const CvGame& game);
+	void SendTurnComplete(const CvGame& game);
 	void SendSampleData();
 	void LogState(const char* context, bool activeFlag) const;
 	void PollCommands(CvGame& game);

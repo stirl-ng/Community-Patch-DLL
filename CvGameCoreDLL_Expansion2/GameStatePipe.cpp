@@ -108,6 +108,37 @@ namespace
 			}
 		}
 	}
+
+	std::string JsonEscape(const std::string& value)
+	{
+		std::string escaped;
+		escaped.reserve(value.size());
+		for (size_t i = 0; i < value.size(); ++i)
+		{
+			const char ch = value[i];
+			switch (ch)
+			{
+			case '\\':
+			case '\"':
+				escaped.push_back('\\');
+				escaped.push_back(ch);
+				break;
+			case '\n':
+				escaped.append("\\n");
+				break;
+			case '\r':
+				escaped.append("\\r");
+				break;
+			case '\t':
+				escaped.append("\\t");
+				break;
+			default:
+				escaped.push_back(ch);
+				break;
+			}
+		}
+		return escaped;
+	}
 #endif
 }
 
@@ -205,6 +236,53 @@ void GameStatePipe::SendTurnData(const CvGame& game)
 	else
 	{
 		LogMessage("GameStatePipe: successfully sent turn %d (%zu bytes)", game.getGameTurn(), data.size());
+	}
+#else
+	UNUSED_VARIABLE(game);
+#endif
+}
+
+void GameStatePipe::SendTurnComplete(const CvGame& game)
+{
+#if defined(_WIN32)
+	EnsureConnected();
+	if (m_hPipe == INVALID_HANDLE_VALUE)
+	{
+		LogMessage("GameStatePipe: no connection; skipping turn complete for turn %d", game.getGameTurn());
+		return;
+	}
+
+	PlayerTypes activePlayer = game.getActivePlayer();
+	const CvPlayer& kActivePlayer = GET_PLAYER(activePlayer);
+
+	std::ostringstream payload;
+
+	// Send turn_complete message
+	payload << "{\"type\":\"turn_complete\"";
+	payload << ",\"turn\":" << game.getGameTurn();
+	payload << ",\"player_id\":" << activePlayer;
+	if (activePlayer != NO_PLAYER)
+	{
+		std::string playerName = kActivePlayer.getName();
+		payload << ",\"player_name\":\"" << JsonEscape(playerName) << "\"";
+		payload << ",\"is_human\":" << (kActivePlayer.isHuman() ? "true" : "false");
+	}
+	payload << ",\"state\":{";
+	payload << "\"turn\":" << game.getGameTurn();
+	payload << ",\"playersAlive\":" << game.countCivPlayersAlive();
+	payload << ",\"civsEver\":" << game.countCivPlayersEverAlive();
+	// TODO: Add more state fields (cities, units, tech, etc.)
+	payload << "}}\n";
+
+	const std::string data = payload.str();
+	LogMessage("GameStatePipe: sending turn_complete for turn %d, player %d (%zu bytes)", game.getGameTurn(), activePlayer, data.size());
+	if (!WriteBytes(data.c_str(), data.size()))
+	{
+		LogMessage("GameStatePipe: write failed for turn_complete turn %d", game.getGameTurn());
+	}
+	else
+	{
+		LogMessage("GameStatePipe: successfully sent turn_complete turn %d (%zu bytes)", game.getGameTurn(), data.size());
 	}
 #else
 	UNUSED_VARIABLE(game);
@@ -337,6 +415,25 @@ void GameStatePipe::PollCommands(CvGame& game)
 		return;
 	}
 
+	// Check if we already have a complete command in the buffer
+	size_t newlinePos = m_pendingInput.find('\n');
+	if (newlinePos != std::string::npos)
+	{
+		// Process the first complete command in the buffer
+		std::string command = m_pendingInput.substr(0, newlinePos);
+		m_pendingInput.erase(0, newlinePos + 1);
+		TrimLine(command);
+		if (!command.empty())
+		{
+			LogMessage("GameStatePipe: received command '%s'", command.c_str());
+			game.HandlePipeCommand(command);
+		}
+		// Return immediately after processing one command
+		// The next call to PollCommands will process the next command
+		return;
+	}
+
+	// No complete command in buffer, check for new data
 	DWORD bytesAvailable = 0;
 	if (!PeekNamedPipe(static_cast<HANDLE>(m_hPipe), NULL, 0, NULL, &bytesAvailable, NULL))
 	{
@@ -351,35 +448,28 @@ void GameStatePipe::PollCommands(CvGame& game)
 		return;
 	}
 
+	// Read only enough bytes to potentially complete a command
+	// We'll read in chunks but stop as soon as we get a newline
 	char readBuffer[256];
-	while (bytesAvailable > 0)
+	const DWORD maxChunk = static_cast<DWORD>(sizeof(readBuffer) - 1);
+	const DWORD bytesToRead = (bytesAvailable < maxChunk) ? bytesAvailable : maxChunk;
+	DWORD bytesRead = 0;
+	if (!ReadFile(static_cast<HANDLE>(m_hPipe), readBuffer, bytesToRead, &bytesRead, NULL) || bytesRead == 0)
 	{
-		const DWORD maxChunk = static_cast<DWORD>(sizeof(readBuffer) - 1);
-		const DWORD bytesToRead = (bytesAvailable < maxChunk) ? bytesAvailable : maxChunk;
-		DWORD bytesRead = 0;
-		if (!ReadFile(static_cast<HANDLE>(m_hPipe), readBuffer, bytesToRead, &bytesRead, NULL) || bytesRead == 0)
-		{
-			const DWORD lastError = GetLastError();
-			LogMessage("GameStatePipe: read failed for command stream (error=%lu)", lastError);
-			Disconnect();
-			return;
-		}
-
-		readBuffer[bytesRead] = '\0';
-		m_pendingInput.append(readBuffer, bytesRead);
-
-		if (!PeekNamedPipe(static_cast<HANDLE>(m_hPipe), NULL, 0, NULL, &bytesAvailable, NULL))
-		{
-			const DWORD lastError = GetLastError();
-			LogMessage("GameStatePipe: PeekNamedPipe failed after read (error=%lu)", lastError);
-			Disconnect();
-			return;
-		}
+		const DWORD lastError = GetLastError();
+		LogMessage("GameStatePipe: read failed for command stream (error=%lu)", lastError);
+		Disconnect();
+		return;
 	}
 
-	size_t newlinePos = std::string::npos;
-	while ((newlinePos = m_pendingInput.find('\n')) != std::string::npos)
+	readBuffer[bytesRead] = '\0';
+	m_pendingInput.append(readBuffer, bytesRead);
+
+	// Check again for a complete command after reading new data
+	newlinePos = m_pendingInput.find('\n');
+	if (newlinePos != std::string::npos)
 	{
+		// Process the first complete command
 		std::string command = m_pendingInput.substr(0, newlinePos);
 		m_pendingInput.erase(0, newlinePos + 1);
 		TrimLine(command);
@@ -388,6 +478,8 @@ void GameStatePipe::PollCommands(CvGame& game)
 			LogMessage("GameStatePipe: received command '%s'", command.c_str());
 			game.HandlePipeCommand(command);
 		}
+		// Return immediately after processing one command
+		// Any remaining data stays in m_pendingInput for the next call
 	}
 #else
 	UNUSED_VARIABLE(game);
