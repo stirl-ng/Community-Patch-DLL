@@ -9053,6 +9053,7 @@ bool CvUnit::changeAdmiralPort(int iX, int iY)
 //	--------------------------------------------------------------------------------
 bool CvUnit::canPlunderTradeRoute(const CvPlot* pPlot, bool bOnlyTestVisibility) const
 {
+	// If you change anything here, make sure to also update CvLuaPlayer::lGetReasonPlunderTradeRouteDisabled and CvPlayerTrade::PlunderTradeRoute
 	if (!IsCombatUnit())
 	{
 		return false;
@@ -9076,8 +9077,9 @@ bool CvUnit::canPlunderTradeRoute(const CvPlot* pPlot, bool bOnlyTestVisibility)
 	if (GET_PLAYER(m_eOwner).GetTrade()->ContainsOpposingPlayerTradeUnit(pPlot))
 	{
 		std::vector<int> aiTradeUnitsAtPlot;
-		aiTradeUnitsAtPlot = GET_PLAYER(m_eOwner).GetTrade()->GetOpposingTradeUnitsAtPlot(pPlot, true);
+		aiTradeUnitsAtPlot = GET_PLAYER(m_eOwner).GetTrade()->GetOpposingTradeUnitsAtPlot(pPlot, false);
 
+		bool bShowTooltip = false;
 		for (uint uiTradeRoute = 0; uiTradeRoute < aiTradeUnitsAtPlot.size(); uiTradeRoute++)
 		{
 			PlayerTypes eTradeUnitOwner = GC.getGame().GetGameTrade()->GetOwnerFromID(aiTradeUnitsAtPlot[uiTradeRoute]);
@@ -9087,61 +9089,37 @@ bool CvUnit::canPlunderTradeRoute(const CvPlot* pPlot, bool bOnlyTestVisibility)
 				continue;
 			}
 
+			bool bCorporationInvulnerable = false;
 			CorporationTypes eCorporation = GET_PLAYER(eTradeUnitOwner).GetCorporations()->GetFoundedCorporation();
 			if (eCorporation != NO_CORPORATION)
 			{
 				CvCorporationEntry* pkCorporation = GC.getCorporationInfo(eCorporation);
 				if (pkCorporation && pkCorporation->IsTradeRoutesInvulnerable())
 				{
-					return false;
+					bCorporationInvulnerable = true;
 				}
 			}
 
-			TeamTypes eTeam = GET_PLAYER(eTradeUnitOwner).getTeam();
-			if (!GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam) && !GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
-				continue;
-
-			if (GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
+			if (!bCorporationInvulnerable)
 			{
-				PlayerTypes eTradeUnitDest = GC.getGame().GetGameTrade()->GetDestFromID(aiTradeUnitsAtPlot[uiTradeRoute]);
-				if (eTradeUnitDest == m_eOwner && !GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam))
+				TeamTypes eTeam = GET_PLAYER(eTradeUnitOwner).getTeam();
+				if (GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam))
+					return true;
+
+				if (GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
 				{
-					return false;
-				}
-			}
-		}
-		if (!bOnlyTestVisibility)
-		{
-			if (aiTradeUnitsAtPlot.size() <= 0)
-			{
-				return false;
-			}
-
-			PlayerTypes eTradeUnitOwner = GC.getGame().GetGameTrade()->GetOwnerFromID(aiTradeUnitsAtPlot[0]);
-			if (eTradeUnitOwner == NO_PLAYER)
-			{
-				// invalid TradeUnit
-				return false;
-			}
-
-
-			CorporationTypes eCorporation = GET_PLAYER(eTradeUnitOwner).GetCorporations()->GetFoundedCorporation();
-			if (eCorporation != NO_CORPORATION)
-			{
-				CvCorporationEntry* pkCorporation = GC.getCorporationInfo(eCorporation);
-				if (pkCorporation && pkCorporation->IsTradeRoutesInvulnerable())
-				{
-					return false;
+					PlayerTypes eTradeUnitDest = GC.getGame().GetGameTrade()->GetDestFromID(aiTradeUnitsAtPlot[uiTradeRoute]);
+					if (eTradeUnitDest != m_eOwner)
+					{
+						return true;
+					}
 				}
 			}
 
-			TeamTypes eTeam = GET_PLAYER(eTradeUnitOwner).getTeam();
-			if (!GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam) && !GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
-			{
-				return false;
-			}
+			// this TR cannot be plundered because we're not at war with the player or because of their corporation. The action button should be displayed with a tooltip explaining why the TR can't be plundered (unless there's another trade route here that can be plundered)
+			bShowTooltip = true;
 		}
-		return true;
+		return bOnlyTestVisibility && bShowTooltip;
 	}
 	else
 	{
@@ -9186,7 +9164,20 @@ bool CvUnit::plunderTradeRoute()
 			}
 		}
 		TeamTypes eTeam = GET_PLAYER(eTradeUnitOwner).getTeam();
-		if (GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam) || GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
+		bool bValidTarget = false;
+
+		if (GET_TEAM(GET_PLAYER(m_eOwner).getTeam()).isAtWar(eTeam))
+			bValidTarget = true;
+
+		if (GET_PLAYER(m_eOwner).GetPlayerTraits()->IsCanPlunderWithoutWar())
+		{
+			PlayerTypes eTradeUnitDest = GC.getGame().GetGameTrade()->GetDestFromID(aiTradeUnitsAtPlot[uiTradeRoute]);
+			if (eTradeUnitDest != m_eOwner)
+			{
+				bValidTarget = true;
+			}
+		}
+		if (bValidTarget)
 		{
 			pTrade->PlunderTradeRoute(aiTradeUnitsAtPlot[uiTradeRoute], this);
 			bSuccess = true;
@@ -13395,6 +13386,11 @@ bool CvUnit::canPromote(PromotionTypes ePromotion, int iLeaderUnitId) const
 		return false;
 	}
 
+	if (IsPromotionBlocked(ePromotion))
+	{
+		return false;
+	}
+
 	CvPromotionEntry* pkPromotionInfo = GC.getPromotionInfo(ePromotion);
 	if(pkPromotionInfo == NULL)
 	{
@@ -15090,8 +15086,6 @@ std::map<CvUnit*, CvPlot*> CvUnit::DoSquadPlotAssignments(CvPlot* pDestPlot, boo
 	}
 
 	CvPlayer* pPlayer = &GET_PLAYER(getOwner());
-
-	bool isDestWater = pDestPlot->isWater();
 
 	// First, construct a list of all units in squad eligible to go to target tile
 	std::vector<CvUnit*> stackingUnits;
@@ -20358,42 +20352,24 @@ void CvUnit::setXY(int iX, int iY, bool bGroup, bool bUpdate, bool bShow, bool b
 		}
 #endif
 
-		bool bZero = false;
-		if(IsGainsXPFromScouting())
+		if (IsGainsXPFromScouting() && GetNumTilesRevealedThisTurn() > 0)
 		{
-			int iExperience = /*1*/ GD_INT_GET(BALANCE_SCOUT_XP_BASE);
-			iExperience += GetNumTilesRevealedThisTurn();
-			iExperience /= 6;
-			if(iExperience > 0)
-			{
-				//Up to max barb value - rest has to come through combat!
-				changeExperienceTimes100(iExperience * 100);
-				bZero = true;
-			}
+			changeExperienceTimes100(GetNumTilesRevealedThisTurn() * 100 / /*10*/ GD_INT_GET(BALANCE_SCOUT_XP_DENOMINATOR));
 		}
-		if(IsGainsYieldFromScouting())
+		if (IsGainsYieldFromScouting())
 		{
-			bool bSea = false;
-			if(getDomainType() == DOMAIN_SEA)
-			{
-				bSea = true;
-			}
+			bool bSea = (getDomainType() == DOMAIN_SEA);
 			CvCity* pCity = GC.getMap().findCity(getX(), getY(), getOwner(), getTeam());
+			if (!pCity)
+				pCity = kPlayer.getCapitalCity();
 
-			if(pCity == NULL)
+			if (pCity)
 			{
-				pCity = GET_PLAYER(getOwner()).getCapitalCity();
-			}
-			if(pCity != NULL)
-			{
-				GET_PLAYER(getOwner()).doInstantYield(INSTANT_YIELD_TYPE_SCOUTING, false, NO_GREATPERSON, NO_BUILDING, 0, false, NO_PLAYER, NULL, false, pCity, bSea, true, false, NO_YIELD, this);
-				bZero = true;
+				kPlayer.doInstantYield(INSTANT_YIELD_TYPE_SCOUTING, false, NO_GREATPERSON, NO_BUILDING, GetNumTilesRevealedThisTurn(), false, NO_PLAYER, NULL, false, pCity, bSea, true, false, NO_YIELD, this);
 			}
 		}
-		if(bZero)
-		{
-			SetNumTilesRevealedThisTurn(0);
-		}
+
+		SetNumTilesRevealedThisTurn(0);
 
 		// if I was invisible to the active team but won't be any more or vice versa
 		InvisibleTypes eInvisoType = getInvisibleType();

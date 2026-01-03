@@ -1674,8 +1674,10 @@ int CvLuaCity::lGetBuildingYieldModifier(lua_State* L)
 	CvPlayer& kPlayer = GET_PLAYER(ePlayer);
 	CvBuildingEntry* pkBuildingInfo = GC.getBuildingInfo(eBuilding);
 	BuildingClassTypes eBuildingClass = pkBuildingInfo->GetBuildingClassType();
+	int iEraScaler = max(1, static_cast<int>(kPlayer.GetCurrentEra()));
 
 	int iModifier = pkBuildingInfo->GetYieldModifier(eYield);
+	iModifier += pkBuildingInfo->GetYieldModifierEraScaling(eYield) * iEraScaler;
 	iModifier += kPlayer.GetPlayerPolicies()->GetBuildingClassYieldModifier(eBuildingClass, eYield);
 	iModifier += pCity->GetEventBuildingClassCityYieldModifier(eBuildingClass, eYield);
 
@@ -5190,7 +5192,7 @@ int CvLuaCity::lGetExtraSpecialistPoints(lua_State* L)
 		if (eMajority != NO_RELIGION)
 		{
 			const CvReligion* pReligion = GC.getGame().GetGameReligions()->GetReligion(eMajority, pkCity->getOwner());
-			if (pReligion)
+			if (pReligion && GetGreatPersonFromSpecialist(eSpecialist) != NO_GREATPERSON)
 			{
 				lua_pushinteger(L, pReligion->m_Beliefs.GetGreatPersonPoints(GetGreatPersonFromSpecialist(eSpecialist), pkCity->getOwner(), pkCity, true));
 				return 1;

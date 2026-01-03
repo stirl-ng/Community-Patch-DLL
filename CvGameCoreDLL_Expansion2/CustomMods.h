@@ -477,6 +477,9 @@
 // FIXME: Disabled for now; this needs to be examined to see if it still works properly
 #define MOD_CARGO_SHIPS												(false)
 
+// Halve starting XP for combat units purchased with Faith
+#define MOD_BALANCE_HALF_XP_FAITH_PURCHASES							gCustomMods.isBALANCE_HALF_XP_FAITH_PURCHASES()
+
 
 /////////////////////////////////////////
 // OTHER USER INTERFACE OPTIONS
@@ -1032,9 +1035,6 @@
 
 // Enables Not For Sale modmod support
 #define MOD_NOT_FOR_SALE											gCustomMods.isNOT_FOR_SALE()
-
-// Enables Notification Settings modmod support
-#define MOD_NOTIFICATION_SETTINGS									gCustomMods.isNOTIFICATION_SETTINGS()
 
 // Enables Route Planner modmod support
 #define MOD_ROUTE_PLANNER											gCustomMods.isROUTE_PLANNER()
@@ -1627,6 +1627,7 @@ public:
 	MOD_OPT_DECL(BALANCE_UNIT_INVESTMENTS);
 	MOD_OPT_DECL(BALANCE_XP_ON_FIRST_ATTACK);
 	MOD_OPT_DECL(CARGO_SHIPS); // disabled
+	MOD_OPT_DECL(BALANCE_HALF_XP_FAITH_PURCHASES);
 
 	// Other User Interface Options
 	MOD_OPT_DECL(UI_DISPLAY_PRECISE_MOVEMENT_POINTS);
@@ -1783,7 +1784,6 @@ public:
 	MOD_OPT_DECL(ISKA_PANTHEONS);
 	MOD_OPT_DECL(ISKA_GOLDENAGEPOINTS_TO_PRESTIGE);
 	MOD_OPT_DECL(NOT_FOR_SALE);
-	MOD_OPT_DECL(NOTIFICATION_SETTINGS);
 	MOD_OPT_DECL(ROUTE_PLANNER);
 	MOD_OPT_DECL(BALANCE_CORE_JFD);
 
