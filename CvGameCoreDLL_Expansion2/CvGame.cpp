@@ -1418,6 +1418,104 @@ void CvGame::AddPopupWithPipe(const CvPopupInfo& kPopup)
 	GC.GetEngineUserInterface()->AddPopup(kPopup);
 }
 
+void CvGame::SendDiplomaticMessageToPipe(PlayerTypes ePlayer, DiploUIStateTypes eDiploUIState, const char* szLeaderMessage, LeaderheadAnimationTypes eAction, int iData1, const CvDeal* pDeal)
+{
+#if defined(_WIN32)
+	EnsureGameStatePipe("CvGame::SendDiplomaticMessageToPipe");
+	
+	std::ostringstream payload;
+	payload << "{\"type\":\"diplomatic_message\"";
+	payload << ",\"player\":" << static_cast<int>(ePlayer);
+	payload << ",\"diplo_ui_state\":" << static_cast<int>(eDiploUIState);
+	payload << ",\"animation\":" << static_cast<int>(eAction);
+	payload << ",\"turn\":" << getGameTurn();
+	
+	if (szLeaderMessage && szLeaderMessage[0] != '\0')
+	{
+		payload << ",\"message\":\"" << JsonEscape(szLeaderMessage) << "\"";
+	}
+	if (iData1 != -1)
+	{
+		payload << ",\"data1\":" << iData1;
+	}
+	
+	// Serialize deal details if provided
+	if (pDeal != NULL)
+	{
+		payload << ",\"deal\":{";
+		payload << "\"from_player\":" << static_cast<int>(pDeal->m_eFromPlayer);
+		payload << ",\"to_player\":" << static_cast<int>(pDeal->m_eToPlayer);
+		payload << ",\"duration\":" << pDeal->m_iDuration;
+		payload << ",\"items\":[";
+		
+		bool bFirstItem = true;
+		for (size_t i = 0; i < pDeal->m_TradedItems.size(); i++)
+		{
+			const CvTradedItem& item = pDeal->m_TradedItems[i];
+			if (!bFirstItem)
+				payload << ",";
+			bFirstItem = false;
+			
+			payload << "{";
+			payload << "\"item_type\":" << static_cast<int>(item.m_eItemType);
+			payload << ",\"from_player\":" << static_cast<int>(item.m_eFromPlayer);
+			payload << ",\"duration\":" << item.m_iDuration;
+			payload << ",\"final_turn\":" << item.m_iFinalTurn;
+			payload << ",\"data1\":" << item.m_iData1;
+			payload << ",\"data2\":" << item.m_iData2;
+			payload << ",\"data3\":" << item.m_iData3;
+			payload << ",\"flag1\":" << (item.m_bFlag1 ? "true" : "false");
+			payload << "}";
+		}
+		
+		payload << "]";
+		payload << "}";
+	}
+	
+	payload << "}\n";
+	
+	m_kGameStatePipe.SendLine(payload.str());
+#else
+	UNUSED_VARIABLE(ePlayer);
+	UNUSED_VARIABLE(eDiploUIState);
+	UNUSED_VARIABLE(szLeaderMessage);
+	UNUSED_VARIABLE(eAction);
+	UNUSED_VARIABLE(iData1);
+	UNUSED_VARIABLE(pDeal);
+#endif
+}
+
+void CvGame::SendTechResearchedToPipe(PlayerTypes ePlayer, TechTypes eTech, bool bPartial)
+{
+#if defined(_WIN32)
+	EnsureGameStatePipe("CvGame::SendTechResearchedToPipe");
+	
+	CvTechEntry* pkTechInfo = GC.getTechInfo(eTech);
+	if(pkTechInfo == NULL)
+		return;
+	
+	std::ostringstream payload;
+	payload << "{\"type\":\"tech_researched\"";
+	payload << ",\"player\":" << static_cast<int>(ePlayer);
+	payload << ",\"tech\":" << static_cast<int>(eTech);
+	payload << ",\"partial\":" << (bPartial ? "true" : "false");
+	payload << ",\"turn\":" << getGameTurn();
+	
+	if(pkTechInfo->GetTextKey())
+	{
+		payload << ",\"tech_name\":\"" << JsonEscape(pkTechInfo->GetTextKey()) << "\"";
+	}
+	
+	payload << "}\n";
+	
+	m_kGameStatePipe.SendLine(payload.str());
+#else
+	UNUSED_VARIABLE(ePlayer);
+	UNUSED_VARIABLE(eTech);
+	UNUSED_VARIABLE(bPartial);
+#endif
+}
+
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
 #if defined(_WIN32)

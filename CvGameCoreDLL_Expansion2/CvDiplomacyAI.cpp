@@ -36366,6 +36366,7 @@ void CvDiplomacyAI::DoBeginDiploWithHuman()
 				LeaderheadAnimationTypes eAnimation = LEADERHEAD_ANIM_NEUTRAL_HELLO;
 				const char* szText = GetGreetHumanMessage(eAnimation);
 
+				GC.getGame().SendDiplomaticMessageToPipe(GetID(), DIPLO_UI_STATE_DEFAULT_ROOT, szText, eAnimation);
 				gDLL->GameplayDiplomacyAILeaderMessage(GetID(), DIPLO_UI_STATE_DEFAULT_ROOT, szText, eAnimation);
 			}
 		}
@@ -36374,6 +36375,7 @@ void CvDiplomacyAI::DoBeginDiploWithHuman()
 			LeaderheadAnimationTypes eAnimation = LEADERHEAD_ANIM_NEUTRAL_HELLO;
 			const char* szText = GetGreetHumanMessage(eAnimation);
 
+			GC.getGame().SendDiplomaticMessageToPipe(GetID(), DIPLO_UI_STATE_DEFAULT_ROOT, szText, eAnimation);
 			gDLL->GameplayDiplomacyAILeaderMessage(GetID(), DIPLO_UI_STATE_DEFAULT_ROOT, szText, eAnimation);
 		}
 	}
@@ -36386,6 +36388,7 @@ void CvDiplomacyAI::DoBeginDiploWithHumanEspionageResult()
 	{
 		LeaderheadAnimationTypes eAnimation = LEADERHEAD_ANIM_NEUTRAL_HELLO;
 		const char* szText = GetDiploStringForMessage(DIPLO_MESSAGE_CONFRONT_YOU_KILLED_MY_SPY, GC.getGame().getActivePlayer());
+		GC.getGame().SendDiplomaticMessageToPipe(GetID(), DIPLO_UI_STATE_CONFRONT_YOU_KILLED_MY_SPY, szText, eAnimation);
 		gDLL->GameplayDiplomacyAILeaderMessage(GetID(), DIPLO_UI_STATE_CONFRONT_YOU_KILLED_MY_SPY, szText, eAnimation);
 	}
 }
@@ -36397,6 +36400,7 @@ void CvDiplomacyAI::DoBeginDiploWithHumanInDiscuss()
 	{
 		LeaderheadAnimationTypes eAnimation = LEADERHEAD_ANIM_NEUTRAL_HELLO;
 		const char* szText = GetGreetHumanMessage(eAnimation);
+		GC.getGame().SendDiplomaticMessageToPipe(GetID(), DIPLO_UI_STATE_DISCUSS_HUMAN_INVOKED, szText, eAnimation);
 		gDLL->GameplayDiplomacyAILeaderMessage(GetID(), DIPLO_UI_STATE_DISCUSS_HUMAN_INVOKED, szText, eAnimation);
 	}
 }

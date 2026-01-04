@@ -13018,7 +13018,7 @@ void CvPlayer::receiveGoody(CvPlot* pPlot, GoodyTypes eGoody, CvUnit* pUnit)
 				iSpecialValue = iScience;
 
 			CvPopupInfo kPopupInfo(BUTTONPOPUP_GOODY_HUT_REWARD, eGoody, iSpecialValue);
-			GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+			GC.getGame().AddPopupWithPipe(kPopupInfo);
 			// We are adding a popup that the player must make a choice in, make sure they are not in the end-turn phase.
 			CancelActivePlayerEndTurn();
 		}
@@ -13087,7 +13087,7 @@ void CvPlayer::doGoody(CvPlot* pPlot, CvUnit* pUnit)
 
 				{
 					CvPopupInfo kPopupInfo(BUTTONPOPUP_CHOOSE_GOODY_HUT_REWARD, GetID(), pUnit->GetID());
-					GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+					GC.getGame().AddPopupWithPipe(kPopupInfo);
 					// We are adding a popup that the player must make a choice in, make sure they are not in the end-turn phase.
 					if (!GC.getGame().isReallyNetworkMultiPlayer())
 					{

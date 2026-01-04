@@ -6015,6 +6015,7 @@ void CvTeam::announceTechToPlayers(TechTypes eIndex, bool bPartial)
 		{
 			if(ePlayer == GC.getGame().getActivePlayer())
 			{
+				GC.getGame().SendTechResearchedToPipe(ePlayer, eIndex, bPartial);
 				CvString strBuffer = GetLocalizedText((bPartial ? "TXT_KEY_MISC_PROGRESS_TOWARDS_TECH" : "TXT_KEY_MISC_YOU_DISCOVERED_TECH"), szTechTextKey);
 				DLLUI->AddMessage(0, ePlayer, false, (bSound ? /*10*/ GD_INT_GET(EVENT_MESSAGE_TIME) : -1), strBuffer/*, (bSound ? GC.getTechInfo(eIndex)->GetSoundMP() : NULL), MESSAGE_TYPE_MAJOR_EVENT, NULL, (ColorTypes)GC.getInfoTypeForString("COLOR_TECH_TEXT")*/);
 			}

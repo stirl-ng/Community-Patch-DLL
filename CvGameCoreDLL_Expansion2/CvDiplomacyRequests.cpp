@@ -407,6 +407,7 @@ foundRequest:
 		eDiploType = DIPLO_UI_STATE_BLANK_DISCUSSION;
 	}
 	m_eRequestActiveFromPlayer = eFrom;
+	GC.getGame().SendDiplomaticMessageToPipe(eFrom, eDiploType, requestIter->m_strMessage, requestIter->m_eAnimationType, requestIter->m_iExtraGameData, &kDeal);
 	gDLL->GameplayDiplomacyAILeaderMessage(eFrom, eDiploType, requestIter->m_strMessage, requestIter->m_eAnimationType, requestIter->m_iExtraGameData);
 	m_aRequests.erase(requestIter);
 	//GC.GetEngineUserInterface()->setDirty(GameData_DIRTY_BIT, true);
@@ -423,6 +424,7 @@ void CvDiplomacyRequests::ActivateAllFrom(PlayerTypes eFromPlayer)
 //	Send the request immediately
 void CvDiplomacyRequests::Send(PlayerTypes eFromPlayer, DiploUIStateTypes eDiploType, const char* pszMessage, LeaderheadAnimationTypes eAnimationType, int iExtraGameData /*= -1*/)
 {
+	GC.getGame().SendDiplomaticMessageToPipe(eFromPlayer, eDiploType, pszMessage, eAnimationType, iExtraGameData);
 	gDLL->GameplayDiplomacyAILeaderMessage(eFromPlayer, eDiploType, pszMessage, eAnimationType, iExtraGameData);
 	m_eRequestActiveFromPlayer = eFromPlayer;
 	m_bRequestActive = true;
