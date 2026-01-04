@@ -28,6 +28,7 @@ class CvReplayMessage;
 class CvReplayInfo;
 class CvSiteEvaluatorForSettler;
 class CvCitySiteEvaluator;
+struct CvPopupInfo;
 class IStartPositioner;
 class CvGameReligions;
 class CvGameCulture;
@@ -68,6 +69,8 @@ public:
 	void DoGameStarted();
 	void HandlePipeCommand(const std::string& commandLine);
 	void SendNotificationToPipe(PlayerTypes ePlayer, NotificationTypes eNotificationType, const char* strMessage, const char* strSummary, int iX, int iY, int iGameDataIndex, int iExtraGameData, int iLookupIndex, int iTurn);
+	void SendPopupToPipe(const CvPopupInfo& kPopup);
+	void AddPopupWithPipe(const CvPopupInfo& kPopup);
 
 	void update();
 	void updateScore(bool bForce = false);

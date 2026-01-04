@@ -1362,6 +1362,62 @@ void CvGame::SendNotificationToPipe(PlayerTypes ePlayer, NotificationTypes eNoti
 #endif
 }
 
+void CvGame::SendPopupToPipe(const CvPopupInfo& kPopup)
+{
+#if defined(_WIN32)
+	EnsureGameStatePipe("CvGame::SendPopupToPipe");
+	
+	std::ostringstream payload;
+	payload << "{\"type\":\"popup\"";
+	payload << ",\"popup_type\":" << static_cast<int>(kPopup.eButtonPopupType);
+	payload << ",\"turn\":" << getGameTurn();
+	
+	if (kPopup.iData1 != -1)
+	{
+		payload << ",\"data1\":" << kPopup.iData1;
+	}
+	if (kPopup.iData2 != -1)
+	{
+		payload << ",\"data2\":" << kPopup.iData2;
+	}
+	if (kPopup.iData3 != -1)
+	{
+		payload << ",\"data3\":" << kPopup.iData3;
+	}
+	if (kPopup.iFlags != 0)
+	{
+		payload << ",\"flags\":" << kPopup.iFlags;
+	}
+	if (kPopup.bOption1)
+	{
+		payload << ",\"option1\":true";
+	}
+	if (kPopup.bOption2)
+	{
+		payload << ",\"option2\":true";
+	}
+	if (kPopup.szText[0] != '\0')
+	{
+		payload << ",\"text\":\"" << JsonEscape(kPopup.szText) << "\"";
+	}
+	
+	payload << "}\n";
+	
+	m_kGameStatePipe.SendLine(payload.str());
+#else
+	UNUSED_VARIABLE(kPopup);
+#endif
+}
+
+void CvGame::AddPopupWithPipe(const CvPopupInfo& kPopup)
+{
+	// Send to pipe first (before any filtering or UI processing)
+	SendPopupToPipe(kPopup);
+	
+	// Then send to UI as normal
+	GC.GetEngineUserInterface()->AddPopup(kPopup);
+}
+
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
 #if defined(_WIN32)
@@ -1451,33 +1507,33 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
-		else if (msgType == "end_turn")
+	else if (msgType == "end_turn")
+	{
+		// End the current player's turn by calling the same control handler as the button click
+		std::ostringstream os;
+		
+		PlayerTypes activePlayer = getActivePlayer();
+		CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
+		
+		// Check if we can end the turn (same check as CONTROL_ENDTURN handler)
+		if (!GC.GetEngineUserInterface()->canEndTurn())
 		{
-			// End the current player's turn
-			std::ostringstream os;
+			// Get blocking type information
+			EndTurnBlockingTypes eBlockingType = kActivePlayer.GetEndTurnBlockingType();
+			int iNotificationIndex = kActivePlayer.GetEndTurnBlockingNotificationIndex();
 			
-			PlayerTypes activePlayer = getActivePlayer();
-			CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
-			
-			// Check if we can end the turn
-			if (!GC.GetEngineUserInterface()->canEndTurn())
+			os << "{\"type\":\"error\",\"code\":\"CANNOT_END_TURN\",\"message\":\"Cannot end turn at this time\"";
+			os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlockingType) << "\"";
+			os << ",\"blocking_type_id\":" << static_cast<int>(eBlockingType);
+			if (iNotificationIndex >= 0)
 			{
-				// Get blocking type information
-				EndTurnBlockingTypes eBlockingType = kActivePlayer.GetEndTurnBlockingType();
-				int iNotificationIndex = kActivePlayer.GetEndTurnBlockingNotificationIndex();
-				
-				os << "{\"type\":\"error\",\"code\":\"CANNOT_END_TURN\",\"message\":\"Cannot end turn at this time\"";
-				os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlockingType) << "\"";
-				os << ",\"blocking_type_id\":" << static_cast<int>(eBlockingType);
-				if (iNotificationIndex >= 0)
-				{
-					os << ",\"notification_index\":" << iNotificationIndex;
-				}
-				os << "}";
-				m_kGameStatePipe.SendLine(os.str());
-				return;
+				os << ",\"notification_index\":" << iNotificationIndex;
 			}
-			
+			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
 		if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
 		{
 			os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
@@ -1493,39 +1549,41 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			return;
 		}
 		
-		// Call Lua hook if enabled
-		if (MOD_EVENTS_RED_TURN)
+		// Use the same code path as the button click
+		doControl(CONTROL_ENDTURN);
+		
+		// Verify that doControl() actually initiated the turn end
+		if (!gDLL->HasSentTurnComplete())
 		{
-			ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
-			if(pkScriptSystem)
-			{	
-				CvLuaArgsHandle args;
-				args->Push(activePlayer);
-				bool bResult = false;
-				LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
+			// doControl() didn't actually end the turn (internal check failed)
+			os << "{\"type\":\"error\",\"code\":\"TURN_END_FAILED\",\"message\":\"Failed to initiate turn end\"}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
+		// Manually trigger turn deactivation check (normally done in update loop)
+		CheckPlayerTurnDeactivate();
+		
+		// Check if we can advance the turn now
+		if (!isPaused() && getNumGameTurnActive() == 0)
+		{
+			if (gDLL->CanAdvanceTurn())
+			{
+				// Advance the turn immediately
+				doTurn();
+				os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
+			}
+			else
+			{
+				// Turn end initiated but can't advance yet (waiting for network sync, etc.)
+				os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"note\":\"Turn will advance when ready\"}";
 			}
 		}
-		
-		// Handle achievements
-		if (MOD_ENABLE_ACHIEVEMENTS)
+		else
 		{
-			kActivePlayer.GetPlayerAchievements().EndTurn();
+			// Player turn still active (shouldn't happen, but handle gracefully)
+			os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"note\":\"Turn will advance in next update cycle\"}";
 		}
-		
-		// Actually end the turn
-		gDLL->sendTurnComplete();
-		
-		// Handle achievements post-turn
-		if (MOD_ENABLE_ACHIEVEMENTS)
-		{
-			CvAchievementUnlocker::EndTurn();
-		}
-		
-		// Reset UI mode
-		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
-		
-		// Send success response
-		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
 		m_kGameStatePipe.SendLine(os.str());
 		return;
 	}
@@ -1564,42 +1622,41 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			return;
 		}
 		
-		// Handle achievements
-		if (MOD_ENABLE_ACHIEVEMENTS)
+		// Use the same code path as CONTROL_FORCEENDTURN
+		doControl(CONTROL_FORCEENDTURN);
+		
+		// Verify that doControl() actually initiated the turn end
+		if (!gDLL->HasSentTurnComplete())
 		{
-			kActivePlayer.GetPlayerAchievements().EndTurn();
+			// doControl() didn't actually end the turn (internal check failed)
+			os << "{\"type\":\"error\",\"code\":\"TURN_END_FAILED\",\"message\":\"Failed to initiate force turn end\"}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
 		}
 		
-		// Call Lua hook if enabled
-		if (MOD_EVENTS_RED_TURN)
+		// Manually trigger turn deactivation check (normally done in update loop)
+		CheckPlayerTurnDeactivate();
+		
+		// Check if we can advance the turn now
+		if (!isPaused() && getNumGameTurnActive() == 0)
 		{
-			ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
-			if(pkScriptSystem)
-			{	
-				CvLuaArgsHandle args;
-				args->Push(activePlayer);
-				bool bResult = false;
-				LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
+			if (gDLL->CanAdvanceTurn())
+			{
+				// Advance the turn immediately
+				doTurn();
+				os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true}";
+			}
+			else
+			{
+				// Turn end initiated but can't advance yet (waiting for network sync, etc.)
+				os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true,\"note\":\"Turn will advance when ready\"}";
 			}
 		}
-		
-		// Actually end the turn
-		gDLL->sendTurnComplete();
-		
-		// Handle achievements post-turn
-		if (MOD_ENABLE_ACHIEVEMENTS)
+		else
 		{
-			CvAchievementUnlocker::EndTurn();
+			// Player turn still active (shouldn't happen, but handle gracefully)
+			os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true,\"note\":\"Turn will advance in next update cycle\"}";
 		}
-		
-		// Set force ending turn flag (like CONTROL_FORCEENDTURN does)
-		SetForceEndingTurn(true);
-		
-		// Reset UI mode
-		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
-		
-		// Send success response
-		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true}";
 		m_kGameStatePipe.SendLine(os.str());
 		return;
 	}
@@ -3879,7 +3936,7 @@ void CvGame::handleAction(int iAction)
 				int iBuild = pkActionInfo->getMissionData();
 				CvPopupInfo kPopupInfo(BUTTONPOPUP_CONFIRM_IMPROVEMENT_REBUILD, iAction, iBuild);
 				kPopupInfo.bOption1 = bAlt;
-				GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+				AddPopupWithPipe(kPopupInfo);
 				bSkipMissionAdd = true;		// Skip the mission add, the popup will do it
 			}
 		}
@@ -3894,7 +3951,7 @@ void CvGame::handleAction(int iAction)
 					GC.getGame().GetGameTrade()->InvalidateTradePathCache(pkHeadSelectedUnit->getOwner());
 					CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_INTERNATIONAL_TRADE_ROUTE, pkHeadSelectedUnit->getOwner());
 					kPopup.iData2 = pkHeadSelectedUnit->GetID();
-					GC.GetEngineUserInterface()->AddPopup(kPopup);
+					AddPopupWithPipe(kPopup);
 				}
 			}
 			bSkipMissionAdd = true;	// Skip no matter what, if there is no unit, there is no mission
@@ -3909,7 +3966,7 @@ void CvGame::handleAction(int iAction)
 				{
 					CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_TRADE_UNIT_NEW_HOME);
 					kPopup.iData1 = pkHeadSelectedUnit->GetID();
-					GC.GetEngineUserInterface()->AddPopup(kPopup);
+					AddPopupWithPipe(kPopup);
 				}
 			}
 			bSkipMissionAdd = true;	// Skip no matter what, if there is no unit, there is no mission
@@ -3923,7 +3980,7 @@ void CvGame::handleAction(int iAction)
 				{
 					CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_ADMIRAL_PORT);
 					kPopup.iData1 = pkHeadSelectedUnit->GetID();
-					GC.GetEngineUserInterface()->AddPopup(kPopup);
+					AddPopupWithPipe(kPopup);
 				}
 			}
 			bSkipMissionAdd = true;	// Skip no matter what, if there is no unit, there is no mission
@@ -3947,7 +4004,7 @@ void CvGame::handleAction(int iAction)
 			{
 				CvPopupInfo kPopupInfo(BUTTONPOPUP_CONFIRMCOMMAND, iAction);
 				kPopupInfo.bOption1 = bAlt;
-				GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+				AddPopupWithPipe(kPopupInfo);
 			}
 			else
 			{
@@ -4512,7 +4569,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_CHOOSEPOLICY, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4520,7 +4577,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_DIPLOMATIC_OVERVIEW, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4528,7 +4585,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_MILITARY_OVERVIEW, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4540,7 +4597,7 @@ void CvGame::doControl(ControlTypes eControl)
 		if(!GC.GetEngineUserInterface()->IsPopupQueueEmpty())
 			kPopup.iData1 = 1;
 
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4548,7 +4605,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_NOTIFICATION_LOG, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4556,7 +4613,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_ECONOMIC_OVERVIEW, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4564,7 +4621,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_VICTORY_INFO, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4572,7 +4629,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_DEMOGRAPHICS, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4580,7 +4637,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_ADVISOR_COUNSEL);
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4588,7 +4645,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_ESPIONAGE_OVERVIEW, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -4596,7 +4653,7 @@ void CvGame::doControl(ControlTypes eControl)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_RELIGION_OVERVIEW, getActivePlayer());
 		kPopup.iData1 = 1;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -9153,7 +9210,7 @@ void CvGame::doTurn()
 			{
 				// This popup his the sync rand, so beware
 				CvPopupInfo kPopupInfo(BUTTONPOPUP_WHOS_WINNING);
-				GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+				AddPopupWithPipe(kPopupInfo);
 			}
 		}
 	}
@@ -10520,17 +10577,17 @@ void CvGame::doVictoryRandomization()
 				if (pkBestVictoryInfo->isDiploVote())
 				{
 					CvPopupInfo kPopupInfo(BUTTONPOPUP_MODDER_4, 1);
-					DLLUI->AddPopup(kPopupInfo);
+					AddPopupWithPipe(kPopupInfo);
 				}
 				else if (pkBestVictoryInfo->isInfluential())
 				{
 					CvPopupInfo kPopupInfo(BUTTONPOPUP_MODDER_4, 2);
-					DLLUI->AddPopup(kPopupInfo);
+					AddPopupWithPipe(kPopupInfo);
 				}
 				else if (eBestVictory == (VictoryTypes)GC.getInfoTypeForString("VICTORY_SPACE_RACE", true))
 				{
 					CvPopupInfo kPopupInfo(BUTTONPOPUP_MODDER_4, 3);
-					DLLUI->AddPopup(kPopupInfo);
+					AddPopupWithPipe(kPopupInfo);
 				}
 			}
 		}

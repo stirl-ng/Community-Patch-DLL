@@ -709,13 +709,13 @@ void CvNotifications::Activate(Notification& notification)
 	case NOTIFICATION_WONDER_COMPLETED_ACTIVE_PLAYER:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_WONDER_COMPLETED_ACTIVE_PLAYER, notification.m_iGameDataIndex, notification.m_iExtraGameData, notification.m_iX, notification.m_iY);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 	case NOTIFICATION_GREAT_WORK_COMPLETED_ACTIVE_PLAYER:
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_GREAT_WORK_COMPLETED_ACTIVE_PLAYER, notification.m_iGameDataIndex, notification.m_iExtraGameData, notification.m_iX, notification.m_iY);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 	case NOTIFICATION_BUY_TILE:
@@ -734,7 +734,7 @@ void CvNotifications::Activate(Notification& notification)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_CHOOSETECH, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
 		strcpy_s(kPopup.szText, notification.m_strMessage);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 	case NOTIFICATION_TECH_AWARD:
@@ -743,7 +743,7 @@ void CvNotifications::Activate(Notification& notification)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_TECH_AWARD, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
 			strcpy_s(kPopup.szText, notification.m_strMessage);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 	}
 	break;
@@ -751,13 +751,13 @@ void CvNotifications::Activate(Notification& notification)
 	case NOTIFICATION_FREE_POLICY:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_CHOOSEPOLICY, m_ePlayer);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 	case NOTIFICATION_DIPLO_VOTE:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_DIPLO_VOTE, m_ePlayer);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 	case NOTIFICATION_MINOR_QUEST:
@@ -776,7 +776,7 @@ void CvNotifications::Activate(Notification& notification)
 		{
 			GC.GetEngineUserInterface()->SetTempString(notification.m_strMessage);
 			CvPopupInfo kPopup(BUTTONPOPUP_CITY_STATE_MESSAGE, notification.m_iGameDataIndex, iQuestFlags);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 	}
 	break;
@@ -802,7 +802,7 @@ void CvNotifications::Activate(Notification& notification)
 		kPopupInfo.iData2 = eOrder;
 		kPopupInfo.iData3 = iItemID;
 
-		GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
+		GC.getGame().AddPopupWithPipe(kPopupInfo);
 	}
 	break;
 	case NOTIFICATION_CITY_TILE:
@@ -828,7 +828,7 @@ void CvNotifications::Activate(Notification& notification)
 			CvPopupInfo kPopupInfoOpen((ButtonPopupTypes) (BUTTONPOPUP_MODDER_0 + iModderOffset));
 			kPopupInfoOpen.iData1 = pCity->GetID();
 			kPopupInfoOpen.iData2 = notification.m_iLookupIndex;
-			GC.GetEngineUserInterface()->AddPopup(kPopupInfoOpen);
+			GC.getGame().AddPopupWithPipe(kPopupInfoOpen);
 		}
 		else
 		{
@@ -902,21 +902,21 @@ void CvNotifications::Activate(Notification& notification)
 		if(GET_PLAYER(m_ePlayer).GetNumFreeGreatPeople() > 0)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_FREE_GREAT_PERSON, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 	}
 	break;
 	case NOTIFICATION_FOUND_PANTHEON:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_FOUND_PANTHEON, m_ePlayer, true /*bPantheonBelief*/);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 
 	case NOTIFICATION_ADD_REFORMATION_BELIEF:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_FOUND_PANTHEON, m_ePlayer, false /*bPantheonBelief*/);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -928,7 +928,7 @@ void CvNotifications::Activate(Notification& notification)
 		kPopup.iData2 = notification.m_iY;
 
 		kPopup.bOption1 = notification.m_eNotificationType == NOTIFICATION_FOUND_RELIGION;
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -937,7 +937,7 @@ void CvNotifications::Activate(Notification& notification)
 	case NOTIFICATION_SPY_PROMOTION:
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_ESPIONAGE_OVERVIEW, m_ePlayer);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -945,7 +945,7 @@ void CvNotifications::Activate(Notification& notification)
 	{
 		CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_TECH_TO_STEAL, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
 		strcpy(kPopup.szText, notification.m_strMessage);
-		GC.GetEngineUserInterface()->AddPopup(kPopup);
+		GC.getGame().AddPopupWithPipe(kPopup);
 	}
 	break;
 
@@ -954,7 +954,7 @@ void CvNotifications::Activate(Notification& notification)
 		if(GET_PLAYER(m_ePlayer).GetNumMayaBoosts() > 0)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_MAYA_BONUS, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 	}
 	break;
@@ -964,7 +964,7 @@ void CvNotifications::Activate(Notification& notification)
 		if(GET_PLAYER(m_ePlayer).GetNumFaithGreatPeople() > 0)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_FAITH_GREAT_PERSON, m_ePlayer, notification.m_iGameDataIndex, notification.m_iExtraGameData);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 	}
 	break;
@@ -1011,7 +1011,7 @@ void CvNotifications::Activate(Notification& notification)
 		{
 			LeagueTypes eLeague = (LeagueTypes) notification.m_iGameDataIndex;
 			CvPopupInfo kPopup(BUTTONPOPUP_LEAGUE_OVERVIEW, eLeague);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 
@@ -1026,7 +1026,7 @@ void CvNotifications::Activate(Notification& notification)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CULTURE_OVERVIEW);
 			kPopup.iData2 = 3; // Tab to select
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 
@@ -1035,7 +1035,7 @@ void CvNotifications::Activate(Notification& notification)
 		if (notification.m_iGameDataIndex >= 0)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_ARCHAEOLOGY, m_ePlayer);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 
@@ -1044,7 +1044,7 @@ void CvNotifications::Activate(Notification& notification)
 		if (notification.m_iGameDataIndex >= 0)
 		{
 			CvPopupInfo kPopup(BUTTONPOPUP_CHOOSE_IDEOLOGY, m_ePlayer);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 
@@ -1055,7 +1055,7 @@ void CvNotifications::Activate(Notification& notification)
 			LeagueTypes eLeague = (LeagueTypes) notification.m_iGameDataIndex;
 			LeagueProjectTypes eProject = (LeagueProjectTypes) notification.m_iExtraGameData;
 			CvPopupInfo kPopup(BUTTONPOPUP_LEAGUE_PROJECT_COMPLETED, eLeague, eProject);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 	case 419811917:
@@ -1064,7 +1064,7 @@ void CvNotifications::Activate(Notification& notification)
 		{
 			EventTypes eEvent = (EventTypes)notification.m_iGameDataIndex;
 			CvPopupInfo kPopup(BUTTONPOPUP_MODDER_10, m_ePlayer, eEvent);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 	case 826076831:
@@ -1074,7 +1074,7 @@ void CvNotifications::Activate(Notification& notification)
 			CityEventTypes eEvent = (CityEventTypes)notification.m_iGameDataIndex;
 			int iCityID = notification.m_iExtraGameData;
 			CvPopupInfo kPopup(BUTTONPOPUP_MODDER_8, m_ePlayer, eEvent, iCityID);
-			GC.GetEngineUserInterface()->AddPopup(kPopup);
+			GC.getGame().AddPopupWithPipe(kPopup);
 		}
 		break;
 	case -1608954742:
@@ -1087,7 +1087,7 @@ void CvNotifications::Activate(Notification& notification)
 			if (pPlot)
 			{
 				CvPopupInfo kPopup(BUTTONPOPUP_MODDER_12, m_ePlayer, eEvent, pPlot->GetPlotIndex(), iSpyID);
-				GC.GetEngineUserInterface()->AddPopup(kPopup);
+				GC.getGame().AddPopupWithPipe(kPopup);
 			}
 		}
 		break;
@@ -1104,6 +1104,13 @@ void CvNotifications::Activate(Notification& notification)
 				int iTemp[5] = { tempInt[0], tempInt[1], tempInt[2], tempInt[3], tempInt[4] };
 				bool bTemp[2] = { tempBool[0], tempBool[1] };
 
+				// Construct CvPopupInfo for pipe (note: CvPopupInfo only has iData1-3, but pipe will capture the popup type)
+				CvPopupInfo kPopup(BUTTONPOPUP_CITY_CAPTURED, iTemp[0], iTemp[1], iTemp[2]);
+				kPopup.bOption1 = bTemp[0];
+				kPopup.bOption2 = bTemp[1];
+				// Send to pipe first
+				GC.getGame().SendPopupToPipe(kPopup);
+				// Then call the array version for UI (this is a special overload that UI needs)
 				GC.GetEngineUserInterface()->AddPopup(BUTTONPOPUP_CITY_CAPTURED, POPUP_PARAM_INT_ARRAY(iTemp), POPUP_PARAM_BOOL_ARRAY(bTemp));
 			}
 		}
