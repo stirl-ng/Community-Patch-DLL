@@ -1308,6 +1308,60 @@ void CvGame::EnsureGameStatePipe(const char* context)
 #endif
 }
 
+void CvGame::SendNotificationToPipe(PlayerTypes ePlayer, NotificationTypes eNotificationType, const char* strMessage, const char* strSummary, int iX, int iY, int iGameDataIndex, int iExtraGameData, int iLookupIndex, int iTurn)
+{
+#if defined(_WIN32)
+	this->EnsureGameStatePipe("CvGame::SendNotificationToPipe");
+	
+	std::ostringstream payload;
+	payload << "{\"type\":\"notification\"";
+	payload << ",\"player_id\":" << ePlayer;
+	payload << ",\"notification_type\":" << eNotificationType;
+	payload << ",\"lookup_index\":" << iLookupIndex;
+	payload << ",\"turn\":" << iTurn;
+	
+	if (strMessage && strMessage[0] != '\0')
+	{
+		payload << ",\"message\":\"" << JsonEscape(strMessage) << "\"";
+	}
+	if (strSummary && strSummary[0] != '\0')
+	{
+		payload << ",\"summary\":\"" << JsonEscape(strSummary) << "\"";
+	}
+	if (iX != -1)
+	{
+		payload << ",\"x\":" << iX;
+	}
+	if (iY != -1)
+	{
+		payload << ",\"y\":" << iY;
+	}
+	if (iGameDataIndex != -1)
+	{
+		payload << ",\"game_data_index\":" << iGameDataIndex;
+	}
+	if (iExtraGameData != -1)
+	{
+		payload << ",\"extra_game_data\":" << iExtraGameData;
+	}
+	
+	payload << "}\n";
+	
+	this->m_kGameStatePipe.SendLine(payload.str());
+#else
+	UNUSED_VARIABLE(ePlayer);
+	UNUSED_VARIABLE(eNotificationType);
+	UNUSED_VARIABLE(strMessage);
+	UNUSED_VARIABLE(strSummary);
+	UNUSED_VARIABLE(iX);
+	UNUSED_VARIABLE(iY);
+	UNUSED_VARIABLE(iGameDataIndex);
+	UNUSED_VARIABLE(iExtraGameData);
+	UNUSED_VARIABLE(iLookupIndex);
+	UNUSED_VARIABLE(iTurn);
+#endif
+}
+
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
 #if defined(_WIN32)

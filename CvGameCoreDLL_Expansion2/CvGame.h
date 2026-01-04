@@ -67,6 +67,7 @@ public:
 
 	void DoGameStarted();
 	void HandlePipeCommand(const std::string& commandLine);
+	void SendNotificationToPipe(PlayerTypes ePlayer, NotificationTypes eNotificationType, const char* strMessage, const char* strSummary, int iX, int iY, int iGameDataIndex, int iExtraGameData, int iLookupIndex, int iTurn);
 
 	void update();
 	void updateScore(bool bForce = false);

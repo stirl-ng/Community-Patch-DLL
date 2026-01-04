@@ -235,6 +235,14 @@ int CvNotifications::AddByName(const char* pszNotificationName, const char* strM
 /// Adds a new notification to the list
 int CvNotifications::Add(NotificationTypes eNotificationType, const char* strMessage, const char* strSummary, int iX, int iY, int iGameDataIndex, int iExtraGameData)
 {
+	// Send notification to GameStatePipe FIRST (before any filtering)
+	// This ensures we capture ALL notification attempts, even if they're filtered out
+#if defined(_WIN32)
+	int iTurn = GC.getGame().getGameTurn();
+	int iLookupIndex = m_iCurrentLookupIndex;
+	GC.getGame().SendNotificationToPipe(m_ePlayer, eNotificationType, strMessage, strSummary, iX, iY, iGameDataIndex, iExtraGameData, iLookupIndex, iTurn);
+#endif
+
 	// if the player is not human, do not record
 	if(!GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_NOTIFICATIONS))
 	{
