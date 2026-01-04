@@ -1478,55 +1478,137 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				return;
 			}
 			
-			if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
-			{
-				os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
-				m_kGameStatePipe.SendLine(os.str());
-				return;
-			}
-			
-			// Call Lua hook if enabled
-			if (MOD_EVENTS_RED_TURN)
-			{
-				ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
-				if(pkScriptSystem)
-				{	
-					CvLuaArgsHandle args;
-					args->Push(activePlayer);
-					bool bResult = false;
-					LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
-				}
-			}
-			
-			// Handle achievements
-			if (MOD_ENABLE_ACHIEVEMENTS)
-			{
-				kActivePlayer.GetPlayerAchievements().EndTurn();
-			}
-			
-			// Actually end the turn
-			gDLL->sendTurnComplete();
-			
-			// Handle achievements post-turn
-			if (MOD_ENABLE_ACHIEVEMENTS)
-			{
-				CvAchievementUnlocker::EndTurn();
-			}
-			
-			// Reset UI mode
-			GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
-			
-			// Send success response
-			os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
+		if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
+		{
+			os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
-
-		// Unknown message type
-		std::ostringstream os;
-		os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << JsonEscape(msgType) << "\"}";
+		
+		// Check if turn has already been ended
+		if (gDLL->HasSentTurnComplete())
+		{
+			os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
+		// Call Lua hook if enabled
+		if (MOD_EVENTS_RED_TURN)
+		{
+			ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
+			if(pkScriptSystem)
+			{	
+				CvLuaArgsHandle args;
+				args->Push(activePlayer);
+				bool bResult = false;
+				LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
+			}
+		}
+		
+		// Handle achievements
+		if (MOD_ENABLE_ACHIEVEMENTS)
+		{
+			kActivePlayer.GetPlayerAchievements().EndTurn();
+		}
+		
+		// Actually end the turn
+		gDLL->sendTurnComplete();
+		
+		// Handle achievements post-turn
+		if (MOD_ENABLE_ACHIEVEMENTS)
+		{
+			CvAchievementUnlocker::EndTurn();
+		}
+		
+		// Reset UI mode
+		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
+		
+		// Send success response
+		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
 		m_kGameStatePipe.SendLine(os.str());
 		return;
+	}
+	else if (msgType == "forced_end_turn")
+	{
+		// Force end the current player's turn (bypasses canEndTurn check)
+		std::ostringstream os;
+		
+		PlayerTypes activePlayer = getActivePlayer();
+		CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
+		
+		// Check if AI is ready
+		if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
+		{
+			os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
+		// Check if turn has already been ended
+		if (gDLL->HasSentTurnComplete())
+		{
+			os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
+		// Force end only allows NO_ENDTURN_BLOCKING_TYPE or ENDTURN_BLOCKING_UNITS
+		EndTurnBlockingTypes eBlock = kActivePlayer.GetEndTurnBlockingType();
+		if (eBlock != NO_ENDTURN_BLOCKING_TYPE && eBlock != ENDTURN_BLOCKING_UNITS)
+		{
+			os << "{\"type\":\"error\",\"code\":\"CANNOT_FORCE_END_TURN\",\"message\":\"Cannot force end turn due to blocking type: " << GetEndTurnBlockingTypeName(eBlock) << "\"";
+			os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlock) << "\"";
+			os << ",\"blocking_type_id\":" << static_cast<int>(eBlock) << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		
+		// Handle achievements
+		if (MOD_ENABLE_ACHIEVEMENTS)
+		{
+			kActivePlayer.GetPlayerAchievements().EndTurn();
+		}
+		
+		// Call Lua hook if enabled
+		if (MOD_EVENTS_RED_TURN)
+		{
+			ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
+			if(pkScriptSystem)
+			{	
+				CvLuaArgsHandle args;
+				args->Push(activePlayer);
+				bool bResult = false;
+				LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
+			}
+		}
+		
+		// Actually end the turn
+		gDLL->sendTurnComplete();
+		
+		// Handle achievements post-turn
+		if (MOD_ENABLE_ACHIEVEMENTS)
+		{
+			CvAchievementUnlocker::EndTurn();
+		}
+		
+		// Set force ending turn flag (like CONTROL_FORCEENDTURN does)
+		SetForceEndingTurn(true);
+		
+		// Reset UI mode
+		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
+		
+		// Send success response
+		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true}";
+		m_kGameStatePipe.SendLine(os.str());
+		return;
+	}
+
+	// Unknown message type
+	std::ostringstream os;
+	os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << JsonEscape(msgType) << "\"}";
+	m_kGameStatePipe.SendLine(os.str());
+	return;
 	}
 
 	// Invalid JSON or not a JSON object
