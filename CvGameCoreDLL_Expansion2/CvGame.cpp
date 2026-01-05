@@ -1496,71 +1496,20 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		// Handle JSON protocol messages
 		std::string msgType = msg.get("type").asString();
 
-		if (msgType == "action")
+		if (msgType == "move_unit")
 		{
-			// Execute action and return action_result
+			// Move unit to target coordinates
 			std::string requestId = msg.get("request_id").asString();
-			const JsonValue& action = msg.get("action");
-			std::string kind = action.get("kind").asString();
+			int unitId = msg.get("unit_id").asInt();
+			const JsonValue& toArray = msg.get("to");
 
 			std::ostringstream os;
-			os << "{\"type\":\"action_result\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << "{\"type\":\"move_unit_result\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
 
-			if (kind == "move_unit")
+			if (toArray.isArray() && toArray.size() >= 2)
 			{
-				int unitId = action.get("unit_id").asInt();
-				const JsonValue& toArray = action.get("to");
-				if (toArray.isArray() && toArray.size() >= 2)
-				{
-					int targetX = toArray[0].asInt();
-					int targetY = toArray[1].asInt();
-
-					// Find unit
-					CvUnit* pUnit = NULL;
-					PlayerTypes owner = NO_PLAYER;
-					for (int iPlayer = 0; iPlayer < MAX_PLAYERS; ++iPlayer)
-					{
-						CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)iPlayer);
-						pUnit = kPlayer.getUnit(unitId);
-						if (pUnit != NULL)
-						{
-							owner = (PlayerTypes)iPlayer;
-							break;
-						}
-					}
-
-					if (pUnit != NULL)
-					{
-						CvPlot* pTargetPlot = GC.getMap().plot(targetX, targetY);
-						if (pTargetPlot != NULL)
-						{
-							pUnit->ClearMissionQueue();
-							pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), targetX, targetY, 0, false, false, NO_MISSIONAI, pTargetPlot);
-
-							os << ",\"success\":true,\"result\":{\"message\":\"Unit moved\"}";
-							os << ",\"state_delta\":{\"units\":[{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << ",\"moves_remaining\":" << pUnit->getMoves() << "}]}";
-						}
-						else
-						{
-							os << ",\"success\":false,\"error\":{\"code\":\"INVALID_PLOT\",\"message\":\"Target plot invalid\"}";
-						}
-					}
-					else
-					{
-						os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_FOUND\",\"message\":\"Unit not found\"}";
-					}
-				}
-				else
-				{
-					os << ",\"success\":false,\"error\":{\"code\":\"INVALID_COORDINATES\",\"message\":\"Missing or invalid 'to' array\"}";
-				}
-			}
-			else if (kind == "select_unit")
-			{
-				int unitId = action.get("unit_id").asInt();
-				bool bClear = action.get("clear").asBool(true);
-				bool bToggle = action.get("toggle").asBool(false);
-				bool bSound = action.get("sound").asBool(true);
+				int targetX = toArray[0].asInt();
+				int targetY = toArray[1].asInt();
 
 				// Find unit
 				CvUnit* pUnit = NULL;
@@ -1578,16 +1527,18 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 
 				if (pUnit != NULL)
 				{
-					// Check if unit belongs to active player
-					if (pUnit->getOwner() == getActivePlayer())
+					CvPlot* pTargetPlot = GC.getMap().plot(targetX, targetY);
+					if (pTargetPlot != NULL)
 					{
-						selectUnit(pUnit, bClear, bToggle, bSound);
-						os << ",\"success\":true,\"result\":{\"message\":\"Unit selected\"}";
-						os << ",\"state_delta\":{\"selected_unit\":{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << "}}}";
+						pUnit->ClearMissionQueue();
+						pUnit->PushMission(CvTypes::getMISSION_MOVE_TO(), targetX, targetY, 0, false, false, NO_MISSIONAI, pTargetPlot);
+
+						os << ",\"success\":true,\"result\":{\"message\":\"Unit moved\"}";
+						os << ",\"state_delta\":{\"units\":[{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << ",\"moves_remaining\":" << pUnit->getMoves() << "}]}";
 					}
 					else
 					{
-						os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_OWNED\",\"message\":\"Unit does not belong to active player\"}";
+						os << ",\"success\":false,\"error\":{\"code\":\"INVALID_PLOT\",\"message\":\"Target plot invalid\"}";
 					}
 				}
 				else
@@ -1597,7 +1548,56 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			}
 			else
 			{
-				os << ",\"success\":false,\"error\":{\"code\":\"UNKNOWN_ACTION\",\"message\":\"Action kind not implemented: " << PipeUtils::JsonEscape(kind) << "\"}";
+				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_COORDINATES\",\"message\":\"Missing or invalid 'to' array\"}";
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "select_unit")
+		{
+			// Select a unit
+			std::string requestId = msg.get("request_id").asString();
+			int unitId = msg.get("unit_id").asInt();
+			bool bClear = msg.get("clear").asBool(true);
+			bool bToggle = msg.get("toggle").asBool(false);
+			bool bSound = msg.get("sound").asBool(true);
+
+			std::ostringstream os;
+			os << "{\"type\":\"select_unit_result\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+
+			// Find unit
+			CvUnit* pUnit = NULL;
+			PlayerTypes owner = NO_PLAYER;
+			for (int iPlayer = 0; iPlayer < MAX_PLAYERS; ++iPlayer)
+			{
+				CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)iPlayer);
+				pUnit = kPlayer.getUnit(unitId);
+				if (pUnit != NULL)
+				{
+					owner = (PlayerTypes)iPlayer;
+					break;
+				}
+			}
+
+			if (pUnit != NULL)
+			{
+				// Check if unit belongs to active player
+				if (pUnit->getOwner() == getActivePlayer())
+				{
+					selectUnit(pUnit, bClear, bToggle, bSound);
+					os << ",\"success\":true,\"result\":{\"message\":\"Unit selected\"}";
+					os << ",\"state_delta\":{\"selected_unit\":{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << "}}}";
+				}
+				else
+				{
+					os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_OWNED\",\"message\":\"Unit does not belong to active player\"}";
+				}
+			}
+			else
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_FOUND\",\"message\":\"Unit not found\"}";
 			}
 
 			os << "}";
