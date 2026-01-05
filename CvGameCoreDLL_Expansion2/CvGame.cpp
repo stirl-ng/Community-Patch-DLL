@@ -1979,6 +1979,320 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
+		else if (msgType == "inspect_tile")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int x = msg.get("x").asInt(-1);
+			int y = msg.get("y").asInt(-1);
+			
+			if (x < 0 || y < 0)
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_COORDINATES\",\"message\":\"Invalid coordinates\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			CvPlot* pPlot = GC.getMap().plot(x, y);
+			if (pPlot == NULL)
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_PLOT\",\"message\":\"Plot does not exist\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			PlayerTypes activePlayer = getActivePlayer();
+			TeamTypes activeTeam = GET_PLAYER(activePlayer).getTeam();
+			bool bIsVisible = pPlot->isVisible(activeTeam);
+			bool bIsRevealed = pPlot->isRevealed(activeTeam);
+			
+			// Get revealed values for use later (declare outside blocks)
+			PlayerTypes eRevealedOwner = NO_PLAYER;
+			ImprovementTypes eImprovement = NO_IMPROVEMENT;
+			if (bIsRevealed)
+			{
+				eRevealedOwner = pPlot->getRevealedOwner(activeTeam);
+				eImprovement = pPlot->getRevealedImprovementType(activeTeam);
+			}
+			
+			std::ostringstream os;
+			os << "{\"type\":\"tile_info_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"x\":" << x;
+			os << ",\"y\":" << y;
+			os << ",\"is_visible\":" << (bIsVisible ? "true" : "false");
+			os << ",\"is_revealed\":" << (bIsRevealed ? "true" : "false");
+			
+			// Basic terrain info (always available if revealed)
+			if (bIsRevealed)
+			{
+				os << ",\"terrain_type\":" << static_cast<int>(pPlot->getTerrainType());
+				os << ",\"feature_type\":" << static_cast<int>(pPlot->getFeatureType());
+				os << ",\"is_water\":" << (pPlot->isWater() ? "true" : "false");
+				os << ",\"is_hills\":" << (pPlot->isHills() ? "true" : "false");
+				os << ",\"is_mountain\":" << (pPlot->isMountain() ? "true" : "false");
+				os << ",\"is_river\":" << (pPlot->isRiver() ? "true" : "false");
+				os << ",\"is_fresh_water\":" << (pPlot->isFreshWater() ? "true" : "false");
+				os << ",\"is_coastal\":" << (pPlot->isCoastalLand() ? "true" : "false");
+				
+				// Resource (if visible)
+				ResourceTypes eResource = pPlot->getResourceType(activeTeam);
+				if (eResource != NO_RESOURCE)
+				{
+					os << ",\"resource_type\":" << static_cast<int>(eResource);
+					CvResourceInfo* pResourceInfo = GC.getResourceInfo(eResource);
+					if (pResourceInfo)
+					{
+						os << ",\"resource_name\":\"" << PipeUtils::JsonEscape(pResourceInfo->GetDescription()) << "\"";
+					}
+					os << ",\"resource_quantity\":" << pPlot->getNumResource();
+				}
+				
+				// Improvement (use revealed version to respect fog of war)
+				if (eImprovement != NO_IMPROVEMENT)
+				{
+					os << ",\"improvement_type\":" << static_cast<int>(eImprovement);
+					CvImprovementInfo* pImprovementInfo = GC.getImprovementInfo(eImprovement);
+					if (pImprovementInfo)
+					{
+						os << ",\"improvement_name\":\"" << PipeUtils::JsonEscape(pImprovementInfo->GetDescription()) << "\"";
+					}
+					os << ",\"improvement_pillaged\":" << (pPlot->isImprovementPillaged() ? "true" : "false");
+				}
+				
+				// Route
+				RouteTypes eRoute = pPlot->getRevealedRouteType(activeTeam);
+				if (eRoute != NO_ROUTE)
+				{
+					os << ",\"route_type\":" << static_cast<int>(eRoute);
+					CvRouteInfo* pRouteInfo = GC.getRouteInfo(eRoute);
+					if (pRouteInfo)
+					{
+						os << ",\"route_name\":\"" << PipeUtils::JsonEscape(pRouteInfo->GetDescription()) << "\"";
+					}
+					os << ",\"route_pillaged\":" << (pPlot->isRoutePillaged() ? "true" : "false");
+				}
+				
+				// Owner (use revealed version)
+				if (eRevealedOwner != NO_PLAYER)
+				{
+					os << ",\"owner_id\":" << static_cast<int>(eRevealedOwner);
+					CvPlayer& kOwner = GET_PLAYER(eRevealedOwner);
+					os << ",\"owner_name\":\"" << PipeUtils::JsonEscape(kOwner.getName()) << "\"";
+					os << ",\"is_owned_by_active_player\":" << (eRevealedOwner == activePlayer ? "true" : "false");
+				}
+			}
+			
+			// Units (only if visible)
+			if (bIsVisible)
+			{
+				int iNumUnits = pPlot->getNumUnits();
+				if (iNumUnits > 0)
+				{
+					os << ",\"units\":[";
+					bool firstUnit = true;
+					for (int i = 0; i < iNumUnits; i++)
+					{
+						CvUnit* pUnit = pPlot->getUnitByIndex(i);
+						if (pUnit != NULL)
+						{
+							// Only show units that are visible to the active player
+							if (pUnit->isVisible(activeTeam, false))
+							{
+								if (!firstUnit) os << ",";
+								firstUnit = false;
+								
+								os << "{";
+								os << "\"id\":" << pUnit->GetID();
+								os << ",\"owner_id\":" << static_cast<int>(pUnit->getOwner());
+								os << ",\"unit_type\":" << static_cast<int>(pUnit->getUnitType());
+								CvUnitEntry* pUnitInfo = GC.getUnitInfo(pUnit->getUnitType());
+								if (pUnitInfo)
+								{
+									os << ",\"unit_type_name\":\"" << PipeUtils::JsonEscape(pUnitInfo->GetDescription()) << "\"";
+								}
+								os << ",\"is_combat_unit\":" << (pUnit->IsCombatUnit() ? "true" : "false");
+								os << ",\"is_visible\":" << (pUnit->isVisible(activeTeam, false) ? "true" : "false");
+								os << "}";
+							}
+						}
+					}
+					os << "]";
+				}
+				else
+				{
+					os << ",\"units\":[]";
+				}
+				
+				// City (if any)
+				CvCity* pCity = pPlot->getPlotCity();
+				if (pCity != NULL)
+				{
+					os << ",\"city\":{";
+					os << "\"id\":" << pCity->GetID();
+					os << ",\"name\":\"" << PipeUtils::JsonEscape(pCity->getName()) << "\"";
+					os << ",\"owner_id\":" << static_cast<int>(pCity->getOwner());
+					os << ",\"population\":" << pCity->getPopulation();
+					os << "}";
+				}
+				
+				// Yields (only if visible and owned by active player or visible improvement)
+				if (eRevealedOwner == activePlayer || eImprovement != NO_IMPROVEMENT)
+				{
+					os << ",\"yields\":{";
+					os << "\"food\":" << pPlot->calculateNatureYield(YIELD_FOOD, GET_PLAYER(activePlayer).getTeam(), false);
+					os << ",\"production\":" << pPlot->calculateNatureYield(YIELD_PRODUCTION, GET_PLAYER(activePlayer).getTeam(), false);
+					os << ",\"gold\":" << pPlot->calculateNatureYield(YIELD_GOLD, GET_PLAYER(activePlayer).getTeam(), false);
+					os << ",\"science\":" << pPlot->calculateNatureYield(YIELD_SCIENCE, GET_PLAYER(activePlayer).getTeam(), false);
+					os << ",\"culture\":" << pPlot->calculateNatureYield(YIELD_CULTURE, GET_PLAYER(activePlayer).getTeam(), false);
+					os << ",\"faith\":" << pPlot->calculateNatureYield(YIELD_FAITH, GET_PLAYER(activePlayer).getTeam(), false);
+					os << "}";
+				}
+			}
+			
+			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_cities")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			
+			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
+			if (!kPlayer.isAlive())
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_PLAYER\",\"message\":\"Player not alive\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			std::ostringstream os;
+			os << "{\"type\":\"cities_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"player_id\":" << playerId;
+			os << ",\"turn\":" << getGameTurn();
+			os << ",\"cities\":[";
+			
+			bool first = true;
+			int iCityIndex = 0;
+			for (CvCity* pCity = kPlayer.firstCity(&iCityIndex); pCity != NULL; pCity = kPlayer.nextCity(&iCityIndex))
+			{
+				if (!first) os << ",";
+				first = false;
+				
+				os << "{";
+				os << "\"id\":" << pCity->GetID();
+				os << ",\"name\":\"" << PipeUtils::JsonEscape(pCity->getName()) << "\"";
+				os << ",\"x\":" << pCity->getX();
+				os << ",\"y\":" << pCity->getY();
+				os << ",\"population\":" << pCity->getPopulation();
+				os << ",\"is_capital\":" << (pCity->isCapital() ? "true" : "false");
+				os << ",\"is_puppet\":" << (pCity->isPuppet() ? "true" : "false");
+				
+				// Production
+				UnitTypes eProductionUnit = pCity->getProductionUnit();
+				BuildingTypes eProductionBuilding = pCity->getProductionBuilding();
+				if (eProductionUnit != NO_UNIT)
+				{
+					os << ",\"production\":{";
+					os << "\"type\":\"unit\"";
+					os << ",\"unit_type\":" << static_cast<int>(eProductionUnit);
+					CvUnitEntry* pUnitInfo = GC.getUnitInfo(eProductionUnit);
+					if (pUnitInfo)
+					{
+						os << ",\"name\":\"" << PipeUtils::JsonEscape(pUnitInfo->GetDescription()) << "\"";
+					}
+					os << ",\"turns_left\":" << pCity->getProductionTurnsLeft();
+					os << ",\"progress\":" << pCity->productionLeft();
+					os << "}";
+				}
+				else if (eProductionBuilding != NO_BUILDING)
+				{
+					os << ",\"production\":{";
+					os << "\"type\":\"building\"";
+					os << ",\"building_type\":" << static_cast<int>(eProductionBuilding);
+					CvBuildingEntry* pBuildingInfo = GC.getBuildingInfo(eProductionBuilding);
+					if (pBuildingInfo)
+					{
+						os << ",\"name\":\"" << PipeUtils::JsonEscape(pBuildingInfo->GetDescription()) << "\"";
+					}
+					os << ",\"turns_left\":" << pCity->getProductionTurnsLeft();
+					os << ",\"progress\":" << pCity->productionLeft();
+					os << "}";
+				}
+				else
+				{
+					os << ",\"production\":null";
+				}
+				
+				// Yields (per turn, times 100)
+				os << ",\"yields_per_turn\":{";
+				os << "\"food_times100\":" << pCity->getYieldRateTimes100(YIELD_FOOD, false);
+				os << ",\"production_times100\":" << pCity->getYieldRateTimes100(YIELD_PRODUCTION, false);
+				os << ",\"gold_times100\":" << pCity->getYieldRateTimes100(YIELD_GOLD, false);
+				os << ",\"science_times100\":" << pCity->getYieldRateTimes100(YIELD_SCIENCE, false);
+				os << ",\"culture_times100\":" << pCity->getYieldRateTimes100(YIELD_CULTURE, false);
+				os << ",\"faith_times100\":" << pCity->getYieldRateTimes100(YIELD_FAITH, false);
+				os << "}";
+				
+				// Food and growth
+				os << ",\"food\":{";
+				os << "\"stored\":" << pCity->getFood();
+				os << ",\"turns_to_growth\":" << pCity->getFoodTurnsLeft();
+				os << ",\"threshold\":" << pCity->growthThreshold();
+				os << "}";
+				
+				// Buildings (list all buildings)
+				CvCityBuildings* pBuildings = pCity->GetCityBuildings();
+				if (pBuildings)
+				{
+					os << ",\"buildings\":[";
+					bool firstBuilding = true;
+					const std::vector<BuildingTypes>& vBuildings = pBuildings->GetAllBuildingsHere();
+					for (size_t i = 0; i < vBuildings.size(); i++)
+					{
+						BuildingTypes eBuilding = vBuildings[i];
+						int iCount = pBuildings->GetNumBuilding(eBuilding);
+						if (iCount > 0)
+						{
+							if (!firstBuilding) os << ",";
+							firstBuilding = false;
+							
+							CvBuildingEntry* pBuildingInfo = GC.getBuildingInfo(eBuilding);
+							os << "{";
+							os << "\"building_type\":" << static_cast<int>(eBuilding);
+							if (pBuildingInfo)
+							{
+								os << ",\"name\":\"" << PipeUtils::JsonEscape(pBuildingInfo->GetDescription()) << "\"";
+							}
+							os << ",\"count\":" << iCount;
+							os << "}";
+						}
+					}
+					os << "]";
+				}
+				else
+				{
+					os << ",\"buildings\":[]";
+				}
+				
+				// City strength/defense
+				os << ",\"strength\":" << pCity->getStrengthValue();
+				os << ",\"defense_modifier\":" << pCity->getDefenseModifier(false);
+				
+				// Founded turn
+				os << ",\"founded_turn\":" << pCity->getGameTurnFounded();
+				
+				os << "}";
+			}
+			
+			os << "]}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
 	else if (msgType == "end_turn")
 	{
 		// End the current player's turn by calling the same control handler as the button click
