@@ -284,37 +284,6 @@ namespace
 		return false;
 	}
 
-	std::string JsonEscape(const std::string& value)
-	{
-		std::string escaped;
-		escaped.reserve(value.size());
-		for (size_t i = 0; i < value.size(); ++i)
-		{
-			const char ch = value[i];
-			switch (ch)
-			{
-			case '\\':
-			case '\"':
-				escaped.push_back('\\');
-				escaped.push_back(ch);
-				break;
-			case '\n':
-				escaped.append("\\n");
-				break;
-			case '\r':
-				escaped.append("\\r");
-				break;
-			case '\t':
-				escaped.append("\\t");
-				break;
-			default:
-				escaped.push_back(ch);
-				break;
-			}
-		}
-		return escaped;
-	}
-
 	const char* GetEndTurnBlockingTypeName(EndTurnBlockingTypes eType)
 	{
 		switch (eType)
@@ -1322,11 +1291,11 @@ void CvGame::SendNotificationToPipe(PlayerTypes ePlayer, NotificationTypes eNoti
 	
 	if (strMessage && strMessage[0] != '\0')
 	{
-		payload << ",\"message\":\"" << JsonEscape(strMessage) << "\"";
+		payload << ",\"message\":\"" << PipeUtils::JsonEscape(strMessage) << "\"";
 	}
 	if (strSummary && strSummary[0] != '\0')
 	{
-		payload << ",\"summary\":\"" << JsonEscape(strSummary) << "\"";
+		payload << ",\"summary\":\"" << PipeUtils::JsonEscape(strSummary) << "\"";
 	}
 	if (iX != -1)
 	{
@@ -1398,7 +1367,7 @@ void CvGame::SendPopupToPipe(const CvPopupInfo& kPopup)
 	}
 	if (kPopup.szText[0] != '\0')
 	{
-		payload << ",\"text\":\"" << JsonEscape(kPopup.szText) << "\"";
+		payload << ",\"text\":\"" << PipeUtils::JsonEscape(kPopup.szText) << "\"";
 	}
 	
 	payload << "}\n";
@@ -1432,7 +1401,7 @@ void CvGame::SendDiplomaticMessageToPipe(PlayerTypes ePlayer, DiploUIStateTypes 
 	
 	if (szLeaderMessage && szLeaderMessage[0] != '\0')
 	{
-		payload << ",\"message\":\"" << JsonEscape(szLeaderMessage) << "\"";
+		payload << ",\"message\":\"" << PipeUtils::JsonEscape(szLeaderMessage) << "\"";
 	}
 	if (iData1 != -1)
 	{
@@ -1503,7 +1472,7 @@ void CvGame::SendTechResearchedToPipe(PlayerTypes ePlayer, TechTypes eTech, bool
 	
 	if(pkTechInfo->GetTextKey())
 	{
-		payload << ",\"tech_name\":\"" << JsonEscape(pkTechInfo->GetTextKey()) << "\"";
+		payload << ",\"tech_name\":\"" << PipeUtils::JsonEscape(pkTechInfo->GetTextKey()) << "\"";
 	}
 	
 	payload << "}\n";
@@ -1535,7 +1504,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			std::string kind = action.get("kind").asString();
 
 			std::ostringstream os;
-			os << "{\"type\":\"action_result\",\"request_id\":\"" << JsonEscape(requestId) << "\"";
+			os << "{\"type\":\"action_result\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
 
 			if (kind == "move_unit")
 			{
@@ -1588,7 +1557,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			}
 			else
 			{
-				os << ",\"success\":false,\"error\":{\"code\":\"UNKNOWN_ACTION\",\"message\":\"Action kind not implemented: " << JsonEscape(kind) << "\"}";
+				os << ",\"success\":false,\"error\":{\"code\":\"UNKNOWN_ACTION\",\"message\":\"Action kind not implemented: " << PipeUtils::JsonEscape(kind) << "\"}";
 			}
 
 			os << "}";
@@ -1600,8 +1569,309 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			std::string requestId = msg.get("request_id").asString();
 			// TODO: Build full game state
 			std::ostringstream os;
-			os << "{\"type\":\"state_refresh\",\"request_id\":\"" << JsonEscape(requestId) << "\"";
+			os << "{\"type\":\"state_refresh\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
 			os << ",\"state\":{\"turn\":" << getGameTurn() << ",\"placeholder\":true}}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_notifications")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int playerId = msg.get("player_id").asInt(getActivePlayer());
+
+			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
+			CvNotifications* pNotifications = kPlayer.GetNotifications();
+
+			std::ostringstream os;
+			os << "{\"type\":\"notifications_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"player_id\":" << playerId;
+
+			int count = pNotifications ? pNotifications->GetNumNotifications() : 0;
+			os << ",\"count\":" << count;
+			os << ",\"notifications\":[";
+
+			for (int i = 0; i < count; i++)
+			{
+				if (i > 0) os << ",";
+				os << "{\"index\":" << i;
+				os << ",\"id\":" << pNotifications->GetNotificationID(i);
+				os << ",\"turn\":" << pNotifications->GetNotificationTurn(i);
+				os << ",\"message\":\"" << PipeUtils::JsonEscape(pNotifications->GetNotificationStr(i).c_str()) << "\"";
+				os << ",\"summary\":\"" << PipeUtils::JsonEscape(pNotifications->GetNotificationSummary(i).c_str()) << "\"";
+				os << ",\"dismissed\":" << (pNotifications->IsNotificationDismissed(i) ? "true" : "false");
+				os << "}";
+			}
+
+			os << "]}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_demographics")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			PlayerTypes activePlayer = getActivePlayer();
+
+			// Collect stats for all major civs
+			struct PlayerDemoStats {
+				int playerId;
+				std::string name;
+				std::string civ;
+				bool isHuman;
+				long population;
+				int food, production, gold, land, military, approval, literacy;
+			};
+			std::vector<PlayerDemoStats> allStats;
+
+			for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+			{
+				CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)i);
+				if (!kPlayer.isAlive() || kPlayer.isMinorCiv()) continue;
+
+				PlayerDemoStats stats;
+				stats.playerId = i;
+				stats.name = kPlayer.getName();
+				stats.civ = kPlayer.getCivilizationDescription();
+				stats.isHuman = kPlayer.isHuman();
+				stats.population = kPlayer.getRealPopulation();
+				stats.food = kPlayer.calculateTotalYield(YIELD_FOOD);
+				stats.production = kPlayer.calculateTotalYield(YIELD_PRODUCTION);
+				stats.gold = kPlayer.GetTreasury()->CalculateGrossGold();
+				stats.land = kPlayer.GetNumPlots();
+				stats.military = kPlayer.GetMilitaryMight();
+				stats.approval = kPlayer.GetExcessHappiness();
+				stats.literacy = GET_TEAM(kPlayer.getTeam()).GetTeamTechs()->GetNumTechsKnown();
+				allStats.push_back(stats);
+			}
+
+			std::ostringstream os;
+			os << "{\"type\":\"demographics_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"active_player_id\":" << activePlayer;
+
+			// Output players array
+			os << ",\"players\":[";
+			for (size_t i = 0; i < allStats.size(); i++)
+			{
+				if (i > 0) os << ",";
+				const PlayerDemoStats& s = allStats[i];
+				os << "{\"player_id\":" << s.playerId;
+				os << ",\"name\":\"" << PipeUtils::JsonEscape(s.name) << "\"";
+				os << ",\"civ\":\"" << PipeUtils::JsonEscape(s.civ) << "\"";
+				os << ",\"is_human\":" << (s.isHuman ? "true" : "false");
+				os << ",\"stats\":{";
+				os << "\"population\":" << s.population;
+				os << ",\"food\":" << s.food;
+				os << ",\"production\":" << s.production;
+				os << ",\"gold\":" << s.gold;
+				os << ",\"land\":" << s.land;
+				os << ",\"military\":" << s.military;
+				os << ",\"approval\":" << s.approval;
+				os << ",\"literacy\":" << s.literacy;
+				os << "}}";
+			}
+			os << "]";
+
+			// Calculate rankings for each stat
+			if (!allStats.empty())
+			{
+				// Helper lambda to find best/worst/average
+				auto calcRanking = [&](std::function<long(const PlayerDemoStats&)> getter, const char* name) {
+					long best = getter(allStats[0]), worst = getter(allStats[0]);
+					int bestPlayer = allStats[0].playerId, worstPlayer = allStats[0].playerId;
+					long sum = 0;
+					for (const auto& s : allStats) {
+						long val = getter(s);
+						sum += val;
+						if (val > best) { best = val; bestPlayer = s.playerId; }
+						if (val < worst) { worst = val; worstPlayer = s.playerId; }
+					}
+					os << "\"" << name << "\":{";
+					os << "\"best_player\":" << bestPlayer << ",\"best\":" << best;
+					os << ",\"worst_player\":" << worstPlayer << ",\"worst\":" << worst;
+					os << ",\"average\":" << (sum / (long)allStats.size()) << "}";
+				};
+
+				os << ",\"rankings\":{";
+				calcRanking([](const PlayerDemoStats& s) { return s.population; }, "population");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.food; }, "food");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.production; }, "production");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.gold; }, "gold");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.land; }, "land");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.military; }, "military");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.approval; }, "approval");
+				os << ",";
+				calcRanking([](const PlayerDemoStats& s) { return (long)s.literacy; }, "literacy");
+				os << "}";
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_economic_overview")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			PlayerTypes activePlayer = getActivePlayer();
+
+			std::ostringstream os;
+			os << "{\"type\":\"economic_overview_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"active_player_id\":" << activePlayer;
+			os << ",\"players\":[";
+
+			bool first = true;
+			for (int i = 0; i < MAX_MAJOR_CIVS; i++)
+			{
+				CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)i);
+				if (!kPlayer.isAlive() || kPlayer.isMinorCiv()) continue;
+
+				if (!first) os << ",";
+				first = false;
+
+				CvTreasury* pTreasury = kPlayer.GetTreasury();
+				int diplomacyGold = pTreasury->GetGoldPerTurnFromDiplomacy();
+
+				// Player info
+				os << "{\"player_id\":" << i;
+				os << ",\"name\":\"" << PipeUtils::JsonEscape(kPlayer.getName()) << "\"";
+				os << ",\"civ\":\"" << PipeUtils::JsonEscape(kPlayer.getCivilizationDescription()) << "\"";
+				os << ",\"is_human\":" << (kPlayer.isHuman() ? "true" : "false");
+
+				// Treasury summary
+				os << ",\"treasury\":{";
+				os << "\"current_gold\":" << pTreasury->GetGoldTimes100();
+				os << ",\"gross_income\":" << pTreasury->CalculateGrossGoldTimes100();
+				os << ",\"net_income\":" << pTreasury->CalculateBaseNetGoldTimes100();
+				os << ",\"lifetime_gross\":" << (pTreasury->GetLifetimeGrossGold() * 100);
+				os << "}";
+
+				// Income breakdown (all x100)
+				os << ",\"income\":{";
+				os << "\"cities\":" << pTreasury->GetGoldFromCitiesTimes100();
+				os << ",\"city_connections\":" << pTreasury->GetCityConnectionGoldTimes100();
+				os << ",\"international_trade\":" << pTreasury->GetGoldPerTurnFromTradeRoutesTimes100();
+				os << ",\"diplomacy\":" << (diplomacyGold > 0 ? diplomacyGold * 100 : 0);
+				os << ",\"religion\":" << (kPlayer.GetGoldPerTurnFromReligion() * 100);
+				os << ",\"traits\":" << (kPlayer.GetGoldPerTurnFromTraits() * 100);
+				os << ",\"minor_civs\":" << (kPlayer.GetGoldPerTurnFromMinorCivs() * 100);
+				os << ",\"vassal_taxes\":" << (pTreasury->GetMyShareOfVassalTaxes() * 100);
+				os << "}";
+
+				// Expenses breakdown (all x100)
+				os << ",\"expenses\":{";
+				os << "\"units\":" << (kPlayer.CalculateUnitCost() * 100);
+				os << ",\"buildings\":" << (pTreasury->GetBuildingGoldMaintenance() * 100);
+				os << ",\"improvements\":" << (pTreasury->GetImprovementGoldMaintenance() * 100);
+				os << ",\"vassal_maintenance\":" << (pTreasury->GetVassalGoldMaintenance() * 100);
+				os << ",\"vassal_tax_owed\":" << (pTreasury->GetExpensePerTurnFromVassalTaxes() * 100);
+				os << ",\"diplomacy\":" << (diplomacyGold < 0 ? -diplomacyGold * 100 : 0);
+				os << "}";
+
+				// Unit counts
+				os << ",\"units\":{";
+				os << "\"total\":" << kPlayer.getNumUnits();
+				os << ",\"maintenance_free\":" << kPlayer.GetNumMaintenanceFreeUnits();
+				os << "}";
+
+				// Trade route counts
+				CvPlayerTrade* pTrade = kPlayer.GetTrade();
+				int internalRoutes = pTrade ? pTrade->GetNumberOfInternalTradeRoutes() : 0;
+				os << ",\"trade_routes\":{";
+				os << "\"internal\":" << internalRoutes;
+				os << "}";
+
+				os << "}";  // End player object
+			}
+
+			os << "]}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_player_status")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			
+			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
+			if (!kPlayer.isAlive())
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_PLAYER\",\"message\":\"Player not alive\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			std::ostringstream os;
+			os << "{\"type\":\"player_status_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"player_id\":" << playerId;
+			os << ",\"turn\":" << getGameTurn();
+			
+			// Turn/Date string
+			CvString strTurnString;
+			CvGameTextMgr::setDateStr(strTurnString, getGameTurn(), false, getCalendar(), getStartYear(), getGameSpeedType());
+			os << ",\"turn_string\":\"" << PipeUtils::JsonEscape(strTurnString.c_str()) << "\"";
+			
+			// Science
+			os << ",\"science\":{";
+			os << "\"per_turn_times100\":" << kPlayer.GetScienceTimes100();
+			os << "}";
+			
+			// Gold
+			CvTreasury* pTreasury = kPlayer.GetTreasury();
+			os << ",\"gold\":{";
+			os << "\"current_times100\":" << (pTreasury ? pTreasury->GetGoldTimes100() : 0);
+			os << ",\"per_turn_times100\":" << (pTreasury ? pTreasury->CalculateGoldRateTimes100() : 0);
+			os << "}";
+			
+			// Trade Routes
+			CvPlayerTrade* pTrade = kPlayer.GetTrade();
+			os << ",\"trade_routes\":{";
+			os << "\"international_used\":" << (pTrade ? pTrade->GetNumTradeUnits(true) : 0);
+			os << ",\"international_available\":" << (pTrade ? pTrade->GetNumTradeRoutesPossible() : 0);
+			os << "}";
+			
+			// Happiness
+			os << ",\"happiness\":{";
+			os << "\"excess\":" << kPlayer.GetExcessHappiness();
+			os << ",\"is_empire_unhappy\":" << (kPlayer.IsEmpireUnhappy() ? "true" : "false");
+			os << "}";
+			
+			// Golden Age
+			os << ",\"golden_age\":{";
+			os << "\"turns_remaining\":" << kPlayer.getGoldenAgeTurns();
+			os << ",\"progress_times100\":" << kPlayer.GetGoldenAgeProgressMeterTimes100();
+			os << ",\"progress_threshold\":" << kPlayer.GetGoldenAgeProgressThreshold();
+			os << ",\"is_active\":" << (kPlayer.isGoldenAge() ? "true" : "false");
+			os << "}";
+			
+			// Culture
+			os << ",\"culture\":{";
+			os << "\"current_times100\":" << kPlayer.getJONSCultureTimes100();
+			os << ",\"per_turn_times100\":" << kPlayer.GetTotalJONSCulturePerTurnTimes100();
+			os << ",\"next_policy_cost\":" << kPlayer.getNextPolicyCost();
+			os << "}";
+			
+			// Tourism
+			CvPlayerCulture* pCulture = kPlayer.GetCulture();
+			os << ",\"tourism\":{";
+			os << "\"per_turn\":" << (pCulture ? pCulture->GetTourism() : 0);
+			os << "}";
+			
+			// Faith
+			os << ",\"faith\":{";
+			os << "\"current_times100\":" << kPlayer.GetFaithTimes100();
+			os << ",\"per_turn_times100\":" << kPlayer.GetTotalFaithPerTurnTimes100();
+			os << "}";
+			
+			os << "}";
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
@@ -1761,7 +2031,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 
 	// Unknown message type
 	std::ostringstream os;
-	os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << JsonEscape(msgType) << "\"}";
+	os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << PipeUtils::JsonEscape(msgType) << "\"}";
 	m_kGameStatePipe.SendLine(os.str());
 	return;
 	}

@@ -109,36 +109,6 @@ namespace
 		}
 	}
 
-	std::string JsonEscape(const std::string& value)
-	{
-		std::string escaped;
-		escaped.reserve(value.size());
-		for (size_t i = 0; i < value.size(); ++i)
-		{
-			const char ch = value[i];
-			switch (ch)
-			{
-			case '\\':
-			case '\"':
-				escaped.push_back('\\');
-				escaped.push_back(ch);
-				break;
-			case '\n':
-				escaped.append("\\n");
-				break;
-			case '\r':
-				escaped.append("\\r");
-				break;
-			case '\t':
-				escaped.append("\\t");
-				break;
-			default:
-				escaped.push_back(ch);
-				break;
-			}
-		}
-		return escaped;
-	}
 #endif
 }
 
@@ -214,12 +184,21 @@ void GameStatePipe::SendTurnData(const CvGame& game)
 		return;
 	}
 
+	PlayerTypes activePlayer = game.getActivePlayer();
+	const CvPlayer& kActivePlayer = GET_PLAYER(activePlayer);
+
 	std::ostringstream payload;
 
 	// Send turn_start message according to protocol
 	payload << "{\"type\":\"turn_start\"";
-	payload << ",\"player_id\":0";  // TODO: Determine actual LLM player ID
+	payload << ",\"player_id\":" << activePlayer;
 	payload << ",\"turn\":" << game.getGameTurn();
+	if (activePlayer != NO_PLAYER)
+	{
+		std::string playerName = kActivePlayer.getName();
+		payload << ",\"player_name\":\"" << PipeUtils::JsonEscape(playerName) << "\"";
+		payload << ",\"is_human\":" << (kActivePlayer.isHuman() ? "true" : "false");
+	}
 	payload << ",\"state\":{";
 	payload << "\"turn\":" << game.getGameTurn();
 	payload << ",\"playersAlive\":" << game.countCivPlayersAlive();
@@ -228,14 +207,14 @@ void GameStatePipe::SendTurnData(const CvGame& game)
 	payload << "}}\n";
 
 	const std::string data = payload.str();
-	LogMessage("GameStatePipe: sending turn_start for turn %d (%zu bytes)", game.getGameTurn(), data.size());
+	LogMessage("GameStatePipe: sending turn_start for turn %d, player %d (%zu bytes)", game.getGameTurn(), activePlayer, data.size());
 	if (!WriteBytes(data.c_str(), data.size()))
 	{
 		LogMessage("GameStatePipe: write failed for turn %d", game.getGameTurn());
 	}
 	else
 	{
-		LogMessage("GameStatePipe: successfully sent turn %d (%zu bytes)", game.getGameTurn(), data.size());
+		LogMessage("GameStatePipe: successfully sent turn_start turn %d (%zu bytes)", game.getGameTurn(), data.size());
 	}
 #else
 	UNUSED_VARIABLE(game);
@@ -264,7 +243,7 @@ void GameStatePipe::SendTurnComplete(const CvGame& game)
 	if (activePlayer != NO_PLAYER)
 	{
 		std::string playerName = kActivePlayer.getName();
-		payload << ",\"player_name\":\"" << JsonEscape(playerName) << "\"";
+		payload << ",\"player_name\":\"" << PipeUtils::JsonEscape(playerName) << "\"";
 		payload << ",\"is_human\":" << (kActivePlayer.isHuman() ? "true" : "false");
 	}
 	payload << ",\"state\":{";
