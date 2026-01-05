@@ -2293,9 +2293,62 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
+		else if (msgType == "do_control")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int controlType = msg.get("control_type").asInt(-1);
+			
+			if (controlType < 0)
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_CONTROL_TYPE\",\"message\":\"Invalid control type\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			ControlTypes eControl = (ControlTypes)controlType;
+			bool bCanDo = canDoControl(eControl);
+			
+			if (!bCanDo)
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"CANNOT_DO_CONTROL\",\"message\":\"Control cannot be executed at this time\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\",\"control_type\":" << controlType << "}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			// Execute the control
+			doControl(eControl);
+			
+			std::ostringstream os;
+			os << "{\"type\":\"control_executed\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\",\"control_type\":" << controlType << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "can_do_control")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int controlType = msg.get("control_type").asInt(-1);
+			
+			if (controlType < 0)
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_CONTROL_TYPE\",\"message\":\"Invalid control type\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			ControlTypes eControl = (ControlTypes)controlType;
+			bool bCanDo = canDoControl(eControl);
+			
+			std::ostringstream os;
+			os << "{\"type\":\"can_do_control_result\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\",\"control_type\":" << controlType << ",\"can_do\":" << (bCanDo ? "true" : "false") << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
 	else if (msgType == "end_turn")
 	{
-		// End the current player's turn by calling the same control handler as the button click
+		// End the current player's turn by directly calling sendTurnComplete (same as CONTROL_ENDTURN handler)
 		std::ostringstream os;
 		
 		PlayerTypes activePlayer = getActivePlayer();
@@ -2335,41 +2388,31 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			return;
 		}
 		
-		// Use the same code path as the button click
-		doControl(CONTROL_ENDTURN);
-		
-		// Verify that doControl() actually initiated the turn end
-		if (!gDLL->HasSentTurnComplete())
+		// Directly call sendTurnComplete (same as CONTROL_ENDTURN handler does)
+		// This is more reliable than going through doControl()
+		if (MOD_EVENTS_RED_TURN)
 		{
-			// doControl() didn't actually end the turn (internal check failed)
-			os << "{\"type\":\"error\",\"code\":\"TURN_END_FAILED\",\"message\":\"Failed to initiate turn end\"}";
-			m_kGameStatePipe.SendLine(os.str());
-			return;
-		}
-		
-		// Manually trigger turn deactivation check (normally done in update loop)
-		CheckPlayerTurnDeactivate();
-		
-		// Check if we can advance the turn now
-		if (!isPaused() && getNumGameTurnActive() == 0)
-		{
-			if (gDLL->CanAdvanceTurn())
-			{
-				// Advance the turn immediately
-				doTurn();
-				os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
-			}
-			else
-			{
-				// Turn end initiated but can't advance yet (waiting for network sync, etc.)
-				os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"note\":\"Turn will advance when ready\"}";
+			ICvEngineScriptSystem1* pkScriptSystem = gDLL->GetScriptSystem();
+			if(pkScriptSystem)
+			{	
+				CvLuaArgsHandle args;
+				args->Push(getActivePlayer());
+				bool bResult = false;
+				LuaSupport::CallHook(pkScriptSystem, "TurnComplete", args.get(), bResult);
 			}
 		}
-		else
-		{
-			// Player turn still active (shouldn't happen, but handle gracefully)
-			os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"note\":\"Turn will advance in next update cycle\"}";
-		}
+		
+		if (MOD_ENABLE_ACHIEVEMENTS)
+			kActivePlayer.GetPlayerAchievements().EndTurn();
+		
+		gDLL->sendTurnComplete();
+		
+		if (MOD_ENABLE_ACHIEVEMENTS)
+			CvAchievementUnlocker::EndTurn();
+		
+		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
+		
+		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
 		m_kGameStatePipe.SendLine(os.str());
 		return;
 	}
