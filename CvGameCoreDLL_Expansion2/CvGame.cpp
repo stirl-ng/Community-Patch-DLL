@@ -1555,6 +1555,46 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 					os << ",\"success\":false,\"error\":{\"code\":\"INVALID_COORDINATES\",\"message\":\"Missing or invalid 'to' array\"}";
 				}
 			}
+			else if (kind == "select_unit")
+			{
+				int unitId = action.get("unit_id").asInt();
+				bool bClear = action.get("clear").asBool(true);
+				bool bToggle = action.get("toggle").asBool(false);
+				bool bSound = action.get("sound").asBool(true);
+
+				// Find unit
+				CvUnit* pUnit = NULL;
+				PlayerTypes owner = NO_PLAYER;
+				for (int iPlayer = 0; iPlayer < MAX_PLAYERS; ++iPlayer)
+				{
+					CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)iPlayer);
+					pUnit = kPlayer.getUnit(unitId);
+					if (pUnit != NULL)
+					{
+						owner = (PlayerTypes)iPlayer;
+						break;
+					}
+				}
+
+				if (pUnit != NULL)
+				{
+					// Check if unit belongs to active player
+					if (pUnit->getOwner() == getActivePlayer())
+					{
+						selectUnit(pUnit, bClear, bToggle, bSound);
+						os << ",\"success\":true,\"result\":{\"message\":\"Unit selected\"}";
+						os << ",\"state_delta\":{\"selected_unit\":{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << "}}}";
+					}
+					else
+					{
+						os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_OWNED\",\"message\":\"Unit does not belong to active player\"}";
+					}
+				}
+				else
+				{
+					os << ",\"success\":false,\"error\":{\"code\":\"UNIT_NOT_FOUND\",\"message\":\"Unit not found\"}";
+				}
+			}
 			else
 			{
 				os << ",\"success\":false,\"error\":{\"code\":\"UNKNOWN_ACTION\",\"message\":\"Action kind not implemented: " << PipeUtils::JsonEscape(kind) << "\"}";
@@ -1672,42 +1712,46 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			}
 			os << "]";
 
-			// Calculate rankings for each stat
+			// Calculate rankings for each stat (inline to avoid std::function issues with VS2013)
 			if (!allStats.empty())
 			{
-				// Helper lambda to find best/worst/average
-				auto calcRanking = [&](std::function<long(const PlayerDemoStats&)> getter, const char* name) {
-					long best = getter(allStats[0]), worst = getter(allStats[0]);
-					int bestPlayer = allStats[0].playerId, worstPlayer = allStats[0].playerId;
-					long sum = 0;
-					for (const auto& s : allStats) {
-						long val = getter(s);
-						sum += val;
-						if (val > best) { best = val; bestPlayer = s.playerId; }
-						if (val < worst) { worst = val; worstPlayer = s.playerId; }
-					}
-					os << "\"" << name << "\":{";
-					os << "\"best_player\":" << bestPlayer << ",\"best\":" << best;
-					os << ",\"worst_player\":" << worstPlayer << ",\"worst\":" << worst;
-					os << ",\"average\":" << (sum / (long)allStats.size()) << "}";
-				};
-
 				os << ",\"rankings\":{";
-				calcRanking([](const PlayerDemoStats& s) { return s.population; }, "population");
+				
+				// Helper macro to calculate ranking for a field
+				#define CALC_RANKING(field, name) \
+					do { \
+						long best = allStats[0].field, worst = allStats[0].field; \
+						int bestPlayer = allStats[0].playerId, worstPlayer = allStats[0].playerId; \
+						long sum = 0; \
+						for (size_t i = 0; i < allStats.size(); ++i) { \
+							long val = (long)allStats[i].field; \
+							sum += val; \
+							if (val > best) { best = val; bestPlayer = allStats[i].playerId; } \
+							if (val < worst) { worst = val; worstPlayer = allStats[i].playerId; } \
+						} \
+						os << "\"" << name << "\":{"; \
+						os << "\"best_player\":" << bestPlayer << ",\"best\":" << best; \
+						os << ",\"worst_player\":" << worstPlayer << ",\"worst\":" << worst; \
+						os << ",\"average\":" << (sum / (long)allStats.size()) << "}"; \
+					} while(0)
+				
+				CALC_RANKING(population, "population");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.food; }, "food");
+				CALC_RANKING(food, "food");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.production; }, "production");
+				CALC_RANKING(production, "production");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.gold; }, "gold");
+				CALC_RANKING(gold, "gold");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.land; }, "land");
+				CALC_RANKING(land, "land");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.military; }, "military");
+				CALC_RANKING(military, "military");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.approval; }, "approval");
+				CALC_RANKING(approval, "approval");
 				os << ",";
-				calcRanking([](const PlayerDemoStats& s) { return (long)s.literacy; }, "literacy");
+				CALC_RANKING(literacy, "literacy");
+				
+				#undef CALC_RANKING
 				os << "}";
 			}
 
@@ -1758,15 +1802,15 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				os << ",\"city_connections\":" << pTreasury->GetCityConnectionGoldTimes100();
 				os << ",\"international_trade\":" << pTreasury->GetGoldPerTurnFromTradeRoutesTimes100();
 				os << ",\"diplomacy\":" << (diplomacyGold > 0 ? diplomacyGold * 100 : 0);
-				os << ",\"religion\":" << (kPlayer.GetGoldPerTurnFromReligion() * 100);
-				os << ",\"traits\":" << (kPlayer.GetGoldPerTurnFromTraits() * 100);
+				os << ",\"religion\":" << (pTreasury->GetGoldPerTurnFromReligion() * 100);
+				os << ",\"traits\":" << (pTreasury->GetGoldPerTurnFromTraits() * 100);
 				os << ",\"minor_civs\":" << (kPlayer.GetGoldPerTurnFromMinorCivs() * 100);
 				os << ",\"vassal_taxes\":" << (pTreasury->GetMyShareOfVassalTaxes() * 100);
 				os << "}";
 
 				// Expenses breakdown (all x100)
 				os << ",\"expenses\":{";
-				os << "\"units\":" << (kPlayer.CalculateUnitCost() * 100);
+				os << "\"units\":" << (pTreasury->CalculateUnitCost() * 100);
 				os << ",\"buildings\":" << (pTreasury->GetBuildingGoldMaintenance() * 100);
 				os << ",\"improvements\":" << (pTreasury->GetImprovementGoldMaintenance() * 100);
 				os << ",\"vassal_maintenance\":" << (pTreasury->GetVassalGoldMaintenance() * 100);
@@ -1828,10 +1872,10 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			CvTreasury* pTreasury = kPlayer.GetTreasury();
 			os << ",\"gold\":{";
 			os << "\"current_times100\":" << (pTreasury ? pTreasury->GetGoldTimes100() : 0);
-			os << ",\"per_turn_times100\":" << (pTreasury ? pTreasury->CalculateGoldRateTimes100() : 0);
+			os << ",\"per_turn_times100\":" << kPlayer.calculateGoldRateTimes100();
 			os << "}";
 			
-			// Trade Routes
+			// Trade Routes (Note: "used" actually returns trade units, not routes, for historical reasons matching Lua API)
 			CvPlayerTrade* pTrade = kPlayer.GetTrade();
 			os << ",\"trade_routes\":{";
 			os << "\"international_used\":" << (pTrade ? pTrade->GetNumTradeUnits(true) : 0);
@@ -1872,6 +1916,66 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			os << "}";
 			
 			os << "}";
+			m_kGameStatePipe.SendLine(os.str());
+			return;
+		}
+		else if (msgType == "get_units")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			
+			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
+			if (!kPlayer.isAlive())
+			{
+				std::ostringstream os;
+				os << "{\"type\":\"error\",\"code\":\"INVALID_PLAYER\",\"message\":\"Player not alive\",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"}";
+				m_kGameStatePipe.SendLine(os.str());
+				return;
+			}
+			
+			std::ostringstream os;
+			os << "{\"type\":\"units_result\"";
+			os << ",\"request_id\":\"" << PipeUtils::JsonEscape(requestId) << "\"";
+			os << ",\"player_id\":" << playerId;
+			os << ",\"turn\":" << getGameTurn();
+			os << ",\"units\":[";
+			
+			bool first = true;
+			int iUnitIndex = 0;
+			for (CvUnit* pUnit = kPlayer.firstUnit(&iUnitIndex); pUnit != NULL; pUnit = kPlayer.nextUnit(&iUnitIndex))
+			{
+				if (!first) os << ",";
+				first = false;
+				
+				os << "{";
+				os << "\"id\":" << pUnit->GetID();
+				os << ",\"x\":" << pUnit->getX();
+				os << ",\"y\":" << pUnit->getY();
+				os << ",\"unit_type\":" << static_cast<int>(pUnit->getUnitType());
+				os << ",\"unit_type_name\":\"" << PipeUtils::JsonEscape(GC.getUnitInfo(pUnit->getUnitType())->GetDescription()) << "\"";
+				os << ",\"moves_remaining\":" << pUnit->getMoves();
+				os << ",\"max_moves\":" << pUnit->maxMoves();
+				os << ",\"damage\":" << pUnit->getDamage();
+				os << ",\"max_hit_points\":" << pUnit->GetMaxHitPoints();
+				os << ",\"experience\":" << (pUnit->getExperienceTimes100() / 100);
+				os << ",\"level\":" << pUnit->getLevel();
+				os << ",\"can_move\":" << (pUnit->canMove() ? "true" : "false");
+				os << ",\"is_combat_unit\":" << (pUnit->IsCombatUnit() ? "true" : "false");
+				
+				// Add plot info if available
+				CvPlot* pPlot = pUnit->plot();
+				if (pPlot != NULL)
+				{
+					os << ",\"plot\":{";
+					os << "\"terrain_type\":" << static_cast<int>(pPlot->getTerrainType());
+					os << ",\"feature_type\":" << static_cast<int>(pPlot->getFeatureType());
+					os << "}";
+				}
+				
+				os << "}";
+			}
+			
+			os << "]}";
 			m_kGameStatePipe.SendLine(os.str());
 			return;
 		}
