@@ -49,7 +49,6 @@ All messages are newline-delimited JSON objects.
 | `do_control` | Execute a control command | `request_id`, `control_type` |
 | `can_do_control` | Check if a control can be executed | `request_id`, `control_type` |
 | `end_turn` | End the current turn | (none) |
-| `forced_end_turn` | Force end turn (bypasses some blocks) | (none) |
 
 ### Action Messages
 
@@ -577,7 +576,7 @@ Notes:
 
 2. **Turn Management**
    - `turn_start` and `turn_complete` automatic broadcasts
-   - `end_turn` and `forced_end_turn` commands
+   - `end_turn` command
    - Turn end blocking detection and reporting
 
 3. **Game State Queries**

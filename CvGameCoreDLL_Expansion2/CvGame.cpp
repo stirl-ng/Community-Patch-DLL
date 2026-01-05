@@ -2053,12 +2053,12 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				if (eImprovement != NO_IMPROVEMENT)
 				{
 					os << ",\"improvement_type\":" << static_cast<int>(eImprovement);
-					CvImprovementInfo* pImprovementInfo = GC.getImprovementInfo(eImprovement);
+					CvImprovementEntry* pImprovementInfo = GC.getImprovementInfo(eImprovement);
 					if (pImprovementInfo)
 					{
 						os << ",\"improvement_name\":\"" << PipeUtils::JsonEscape(pImprovementInfo->GetDescription()) << "\"";
 					}
-					os << ",\"improvement_pillaged\":" << (pPlot->isImprovementPillaged() ? "true" : "false");
+					os << ",\"improvement_pillaged\":" << (pPlot->IsImprovementPillaged() ? "true" : "false");
 				}
 				
 				// Route
@@ -2071,7 +2071,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 					{
 						os << ",\"route_name\":\"" << PipeUtils::JsonEscape(pRouteInfo->GetDescription()) << "\"";
 					}
-					os << ",\"route_pillaged\":" << (pPlot->isRoutePillaged() ? "true" : "false");
+					os << ",\"route_pillaged\":" << (pPlot->IsRoutePillaged() ? "true" : "false");
 				}
 				
 				// Owner (use revealed version)
@@ -2098,7 +2098,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 						if (pUnit != NULL)
 						{
 							// Only show units that are visible to the active player
-							if (pUnit->isVisible(activeTeam, false))
+							if (!pUnit->isInvisible(activeTeam, false))
 							{
 								if (!firstUnit) os << ",";
 								firstUnit = false;
@@ -2113,7 +2113,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 									os << ",\"unit_type_name\":\"" << PipeUtils::JsonEscape(pUnitInfo->GetDescription()) << "\"";
 								}
 								os << ",\"is_combat_unit\":" << (pUnit->IsCombatUnit() ? "true" : "false");
-								os << ",\"is_visible\":" << (pUnit->isVisible(activeTeam, false) ? "true" : "false");
+								os << ",\"is_visible\":" << (!pUnit->isInvisible(activeTeam, false) ? "true" : "false");
 								os << "}";
 							}
 						}
@@ -2140,13 +2140,16 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				// Yields (only if visible and owned by active player or visible improvement)
 				if (eRevealedOwner == activePlayer || eImprovement != NO_IMPROVEMENT)
 				{
+					FeatureTypes eFeature = pPlot->getFeatureType();
+					ResourceTypes eResource = pPlot->getResourceType(activeTeam);
+					CvCity* pOwningCity = pPlot->getPlotCity();
 					os << ",\"yields\":{";
-					os << "\"food\":" << pPlot->calculateNatureYield(YIELD_FOOD, GET_PLAYER(activePlayer).getTeam(), false);
-					os << ",\"production\":" << pPlot->calculateNatureYield(YIELD_PRODUCTION, GET_PLAYER(activePlayer).getTeam(), false);
-					os << ",\"gold\":" << pPlot->calculateNatureYield(YIELD_GOLD, GET_PLAYER(activePlayer).getTeam(), false);
-					os << ",\"science\":" << pPlot->calculateNatureYield(YIELD_SCIENCE, GET_PLAYER(activePlayer).getTeam(), false);
-					os << ",\"culture\":" << pPlot->calculateNatureYield(YIELD_CULTURE, GET_PLAYER(activePlayer).getTeam(), false);
-					os << ",\"faith\":" << pPlot->calculateNatureYield(YIELD_FAITH, GET_PLAYER(activePlayer).getTeam(), false);
+					os << "\"food\":" << pPlot->calculateNatureYield(YIELD_FOOD, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
+					os << ",\"production\":" << pPlot->calculateNatureYield(YIELD_PRODUCTION, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
+					os << ",\"gold\":" << pPlot->calculateNatureYield(YIELD_GOLD, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
+					os << ",\"science\":" << pPlot->calculateNatureYield(YIELD_SCIENCE, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
+					os << ",\"culture\":" << pPlot->calculateNatureYield(YIELD_CULTURE, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
+					os << ",\"faith\":" << pPlot->calculateNatureYield(YIELD_FAITH, activePlayer, eFeature, eResource, eImprovement, pOwningCity, false);
 					os << "}";
 				}
 			}
@@ -2190,7 +2193,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				os << ",\"y\":" << pCity->getY();
 				os << ",\"population\":" << pCity->getPopulation();
 				os << ",\"is_capital\":" << (pCity->isCapital() ? "true" : "false");
-				os << ",\"is_puppet\":" << (pCity->isPuppet() ? "true" : "false");
+				os << ",\"is_puppet\":" << (pCity->IsPuppet() ? "true" : "false");
 				
 				// Production
 				UnitTypes eProductionUnit = pCity->getProductionUnit();
@@ -2281,7 +2284,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				
 				// City strength/defense
 				os << ",\"strength\":" << pCity->getStrengthValue();
-				os << ",\"defense_modifier\":" << pCity->getDefenseModifier(false);
+				os << ",\"defense_modifier\":" << pCity->plot()->defenseModifier(GET_PLAYER(pCity->getOwner()).getTeam(), false, false);
 				
 				// Founded turn
 				os << ",\"founded_turn\":" << pCity->getGameTurnFounded();
@@ -2413,79 +2416,6 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
 		
 		os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << "}";
-		m_kGameStatePipe.SendLine(os.str());
-		return;
-	}
-	else if (msgType == "forced_end_turn")
-	{
-		// Force end the current player's turn (bypasses canEndTurn check)
-		std::ostringstream os;
-		
-		PlayerTypes activePlayer = getActivePlayer();
-		CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
-		
-		// Check if AI is ready
-		if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
-		{
-			os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"}";
-			m_kGameStatePipe.SendLine(os.str());
-			return;
-		}
-		
-		// Check if turn has already been ended
-		if (gDLL->HasSentTurnComplete())
-		{
-			os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"}";
-			m_kGameStatePipe.SendLine(os.str());
-			return;
-		}
-		
-		// Force end only allows NO_ENDTURN_BLOCKING_TYPE or ENDTURN_BLOCKING_UNITS
-		EndTurnBlockingTypes eBlock = kActivePlayer.GetEndTurnBlockingType();
-		if (eBlock != NO_ENDTURN_BLOCKING_TYPE && eBlock != ENDTURN_BLOCKING_UNITS)
-		{
-			os << "{\"type\":\"error\",\"code\":\"CANNOT_FORCE_END_TURN\",\"message\":\"Cannot force end turn due to blocking type: " << GetEndTurnBlockingTypeName(eBlock) << "\"";
-			os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlock) << "\"";
-			os << ",\"blocking_type_id\":" << static_cast<int>(eBlock) << "}";
-			m_kGameStatePipe.SendLine(os.str());
-			return;
-		}
-		
-		// Use the same code path as CONTROL_FORCEENDTURN
-		doControl(CONTROL_FORCEENDTURN);
-		
-		// Verify that doControl() actually initiated the turn end
-		if (!gDLL->HasSentTurnComplete())
-		{
-			// doControl() didn't actually end the turn (internal check failed)
-			os << "{\"type\":\"error\",\"code\":\"TURN_END_FAILED\",\"message\":\"Failed to initiate force turn end\"}";
-			m_kGameStatePipe.SendLine(os.str());
-			return;
-		}
-		
-		// Manually trigger turn deactivation check (normally done in update loop)
-		CheckPlayerTurnDeactivate();
-		
-		// Check if we can advance the turn now
-		if (!isPaused() && getNumGameTurnActive() == 0)
-		{
-			if (gDLL->CanAdvanceTurn())
-			{
-				// Advance the turn immediately
-				doTurn();
-				os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true}";
-			}
-			else
-			{
-				// Turn end initiated but can't advance yet (waiting for network sync, etc.)
-				os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true,\"note\":\"Turn will advance when ready\"}";
-			}
-		}
-		else
-		{
-			// Player turn still active (shouldn't happen, but handle gracefully)
-			os << "{\"type\":\"turn_end_initiated\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer << ",\"forced\":true,\"note\":\"Turn will advance in next update cycle\"}";
-		}
 		m_kGameStatePipe.SendLine(os.str());
 		return;
 	}
