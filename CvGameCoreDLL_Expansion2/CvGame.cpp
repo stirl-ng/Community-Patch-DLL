@@ -55,6 +55,7 @@
 #include <vector>
 
 #include "CvDiplomacyRequests.h"
+#include "CvDealAI.h"
 
 #include "CvDllPlot.h"
 #include "FFileSystem.h"
@@ -3529,13 +3530,12 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		os << ",\"tiles\":[";
 
 		// Get reachable plots using the unit's pathfinder
-		std::map<int, int> reachablePlots; // plotIndex -> movementCost
-		pUnit->GetReachablePlots(reachablePlots);
+		ReachablePlots reachablePlots = pUnit->GetAllPlotsInReachThisTurn(true, true, true, 0);
 
 		bool first = true;
-		for (std::map<int, int>::iterator it = reachablePlots.begin(); it != reachablePlots.end(); ++it)
+		for (ReachablePlots::const_iterator it = reachablePlots.begin(); it != reachablePlots.end(); ++it)
 		{
-			CvPlot* pPlot = GC.getMap().plotByIndexUnchecked(it->first);
+			CvPlot* pPlot = GC.getMap().plotByIndexUnchecked(it->iPlotIndex);
 			if (pPlot == NULL) continue;
 
 			bool canEnter = pUnit->canMoveInto(*pPlot, CvUnit::MOVEFLAG_DESTINATION);
@@ -3547,7 +3547,8 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			os << "{";
 			os << "\"x\":" << pPlot->getX();
 			os << ",\"y\":" << pPlot->getY();
-			os << ",\"movement_cost\":" << it->second;
+			os << ",\"moves_left\":" << it->iMovesLeft;
+			os << ",\"path_length\":" << it->iPathLength;
 			os << ",\"can_enter\":" << (canEnter ? "true" : "false");
 
 			if (includeAttacks)

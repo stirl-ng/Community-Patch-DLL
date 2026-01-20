@@ -79,6 +79,10 @@ local kiBullyAnnexed = 8
 local m_lastAction = kiNoAction
 local m_pendingAction = kiNoAction	-- For bullying dialog popups
 local kiGreet = 9
+
+-- Auto-close configuration for LLM integration
+local AUTO_CLOSE_SECONDS = 3.0
+local g_autoCloseTimer = 0
 local questKillCamp = MinorCivQuestTypes.MINOR_CIV_QUEST_KILL_CAMP
 local g_PersonalityInfo = {
 	[ MinorCivPersonalityTypes.MINOR_CIV_PERSONALITY_FRIENDLY ] = {
@@ -175,6 +179,8 @@ function ShowHideHandler( bIsHide, bInitState )
 			OnDisplay()
 			UI.incTurnTimerSemaphore()
 			Events.SerialEventGameMessagePopupShown( m_PopupInfo )
+			-- Reset auto-close timer when popup is shown
+			g_autoCloseTimer = 0
 		else
 			Events.SerialEventGameDataDirty.Remove( OnDisplay )
 			Events.WarStateChanged.Remove( OnDisplay )
@@ -186,6 +192,19 @@ function ShowHideHandler( bIsHide, bInitState )
 	end
 end
 ContextPtr:SetShowHideHandler( ShowHideHandler )
+
+-------------------------------------------------
+-- Auto-close timer for LLM integration
+-------------------------------------------------
+ContextPtr:SetUpdate(function(fDTime)
+	if not ContextPtr:IsHidden() then
+		g_autoCloseTimer = g_autoCloseTimer + fDTime
+		if g_autoCloseTimer >= AUTO_CLOSE_SECONDS then
+			g_autoCloseTimer = 0
+			OnCloseButtonClicked()
+		end
+	end
+end)
 
 -------------------------------------------------
 -- On Event Received

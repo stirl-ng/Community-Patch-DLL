@@ -29,6 +29,10 @@ local kiRevokedProtection = 7;
 local m_iLastAction = kiNoAction;
 local m_iPendingAction = kiNoAction; -- For bullying dialog popups
 
+-- Auto-close configuration for LLM integration
+local AUTO_CLOSE_SECONDS = 3.0
+local g_autoCloseTimer = 0
+
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 -- HANDLERS AND HELPERS
@@ -80,9 +84,11 @@ function ShowHideHandler( bIsHide, bInitState )
 			Controls.BackgroundImage:SetTexture(lastBackgroundImage);
         	UI.incTurnTimerSemaphore();
         	Events.SerialEventGameMessagePopupShown(m_PopupInfo);
+        	-- Reset auto-close timer when popup is shown
+        	g_autoCloseTimer = 0
         else
             UI.decTurnTimerSemaphore();
-            
+
             if(m_PopupInfo ~= nil) then
 				Events.SerialEventGameMessagePopupProcessed.CallImmediate(m_PopupInfo.Type, 0);
 			end
@@ -90,6 +96,19 @@ function ShowHideHandler( bIsHide, bInitState )
     end
 end
 ContextPtr:SetShowHideHandler( ShowHideHandler );
+
+-------------------------------------------------
+-- Auto-close timer for LLM integration
+-------------------------------------------------
+ContextPtr:SetUpdate(function(fDTime)
+    if not ContextPtr:IsHidden() then
+        g_autoCloseTimer = g_autoCloseTimer + fDTime
+        if g_autoCloseTimer >= AUTO_CLOSE_SECONDS then
+            g_autoCloseTimer = 0
+            OnCloseButtonClicked()
+        end
+    end
+end)
 
 
 
