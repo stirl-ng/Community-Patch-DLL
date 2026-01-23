@@ -3101,6 +3101,19 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			PlayerTypes activePlayer = getActivePlayer();
 			CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
 
+			// Check if turn has already been ended (same check as force_end_turn)
+			if (gDLL->HasSentTurnComplete())
+			{
+				os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"";
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
 			// Check if we can end the turn
 			if (!GC.GetEngineUserInterface()->canEndTurn())
 			{
@@ -3124,22 +3137,10 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				return;
 			}
 
+			// Check conditions (same order as force_end_turn)
 			if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
 			{
 				os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"";
-				if (!requestId.empty())
-				{
-					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
-				}
-				os << "}";
-				m_kGameStatePipe.SendMessage(os.str());
-				return;
-			}
-
-			// Check if turn has already been ended
-			if (gDLL->HasSentTurnComplete())
-			{
-				os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"";
 				if (!requestId.empty())
 				{
 					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
@@ -3173,6 +3174,74 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			GC.GetEngineUserInterface()->setInterfaceMode(INTERFACEMODE_SELECTION);
 
 			os << "{\"type\":\"turn_end_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer;
+			if (!requestId.empty())
+			{
+				os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+			}
+			os << "}";
+			m_kGameStatePipe.SendMessage(os.str());
+			return;
+		}
+		else if (msgType == "force_end_turn")
+		{
+			std::string requestId = msg.get("request_id").asString();
+			std::ostringstream os;
+
+			PlayerTypes activePlayer = getActivePlayer();
+			CvPlayerAI& kActivePlayer = GET_PLAYER(activePlayer);
+
+			// Check if turn has already been ended (same check as end_turn)
+			if (gDLL->HasSentTurnComplete())
+			{
+				os << "{\"type\":\"error\",\"code\":\"TURN_ALREADY_ENDED\",\"message\":\"Turn has already been ended\"";
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
+			// Check conditions that doControl(CONTROL_FORCEENDTURN) requires (same order as end_turn)
+			if (!gDLL->allAICivsProcessedThisTurn() || !allUnitAIProcessed())
+			{
+				os << "{\"type\":\"error\",\"code\":\"AI_NOT_READY\",\"message\":\"AI players or units still processing\"";
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
+			// Force end turn only works if there are no blockers, or only unit blockers
+			EndTurnBlockingTypes eBlock = kActivePlayer.GetEndTurnBlockingType();
+			if (eBlock != NO_ENDTURN_BLOCKING_TYPE && eBlock != ENDTURN_BLOCKING_UNITS)
+			{
+				int iNotificationIndex = kActivePlayer.GetEndTurnBlockingNotificationIndex();
+
+				os << "{\"type\":\"error\",\"code\":\"CANNOT_FORCE_END_TURN\",\"message\":\"Cannot force end turn at this time\"";
+				os << ",\"blocking_type\":\"" << GetEndTurnBlockingTypeName(eBlock) << "\"";
+				os << ",\"blocking_type_id\":" << static_cast<int>(eBlock);
+				if (iNotificationIndex >= 0)
+				{
+					os << ",\"notification_index\":" << iNotificationIndex;
+				}
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
+			// Execute the control
+			doControl(CONTROL_FORCEENDTURN);
+
+			os << "{\"type\":\"force_end_turn_ack\",\"turn\":" << getGameTurn() << ",\"player_id\":" << activePlayer;
 			if (!requestId.empty())
 			{
 				os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";

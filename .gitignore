@@ -66,3 +66,4 @@ clang-output/
 #do not ignore lua-language-server configuration (LuaCATS)
 !.luacheckrc
 !.luarc.json
+(1) Community Patch/CvGameCore_Expansion2.dll
