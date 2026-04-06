@@ -74,6 +74,28 @@
 				os << ",\"owner_id\":" << static_cast<int>(eOwner);
 			}
 
+			// River
+			if (pPlot->isRiver())
+			{
+				os << ",\"is_river\":true";
+			}
+
+			// Resource name
+			if (eResource != NO_RESOURCE)
+			{
+				CvResourceInfo* pResourceInfo = GC.getResourceInfo(eResource);
+				if (pResourceInfo)
+					os << ",\"resource_name\":\"" << PipeJson::Escape(pResourceInfo->GetDescription()) << "\"";
+			}
+
+			// Improvement name
+			if (eImprovement != NO_IMPROVEMENT)
+			{
+				CvImprovementEntry* pImprovementInfo = GC.getImprovementInfo(eImprovement);
+				if (pImprovementInfo)
+					os << ",\"improvement_name\":\"" << PipeJson::Escape(pImprovementInfo->GetDescription()) << "\"";
+			}
+
 			os << "}";
 		}
 
