@@ -3128,6 +3128,28 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				{
 					os << ",\"notification_index\":" << iNotificationIndex;
 				}
+				// For unit blockers, list the specific units so the caller doesn't need get_turn_blockers
+				if (eBlockingType == ENDTURN_BLOCKING_UNITS || eBlockingType == ENDTURN_BLOCKING_STACKED_UNITS)
+				{
+					os << ",\"blocking_units\":[";
+					int iLoop = 0;
+					bool bFirst = true;
+					for (const CvUnit* pUnit = kActivePlayer.firstUnit(&iLoop); pUnit; pUnit = kActivePlayer.nextUnit(&iLoop))
+					{
+						if (pUnit->ReadyToMove() && !pUnit->isDelayedDeath() && !pUnit->TurnProcessed())
+						{
+							if (!bFirst) os << ",";
+							os << "{\"unit_id\":" << pUnit->GetID();
+							CvString uName = pUnit->getName();
+							os << ",\"unit_name\":\"" << PipeJson::Escape(uName.c_str()) << "\"";
+							os << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY();
+							os << ",\"moves_left\":" << pUnit->movesLeft();
+							os << "}";
+							bFirst = false;
+						}
+					}
+					os << "]";
+				}
 				if (!requestId.empty())
 				{
 					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
