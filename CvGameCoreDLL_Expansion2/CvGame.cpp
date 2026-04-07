@@ -4193,12 +4193,76 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				{
 					TechTypes eTech = (TechTypes)techId;
 
-					if (kPlayer.GetPlayerTechs()->CanResearch(eTech))
+					// Inline discriminated checks so the caller knows *why* research failed.
+					CvTechEntry* pTechEntry = GC.getTechInfo(eTech);
+					const char* techName = pTechEntry ? pTechEntry->GetDescription() : "Unknown";
+					std::string errorCode;
+					std::string errorMsg;
+
+					if (pTechEntry == NULL)
+					{
+						errorCode = "INVALID_TECH";
+						errorMsg = "Unknown tech_id";
+					}
+					else if (GET_TEAM(kPlayer.getTeam()).GetTeamTechs()->HasTech(eTech))
+					{
+						errorCode = "ALREADY_RESEARCHED";
+						errorMsg = "Technology has already been researched";
+					}
+					else
+					{
+						// Check OR prereqs
+						bool bOrPossible = false;
+						bool bOrValid = false;
+						for (int iPrereq = 0; iPrereq < GD_INT_GET(NUM_OR_TECH_PREREQS); iPrereq++)
+						{
+							TechTypes ePrereq = (TechTypes)pTechEntry->GetPrereqOrTechs(iPrereq);
+							if (ePrereq != NO_TECH)
+							{
+								bOrPossible = true;
+								if (GET_TEAM(kPlayer.getTeam()).GetTeamTechs()->HasTech(ePrereq))
+								{
+									bOrValid = true;
+									break;
+								}
+							}
+						}
+
+						// Check AND prereqs
+						bool bAndMet = true;
+						if (!bOrPossible || bOrValid)
+						{
+							for (int iPrereq = 0; iPrereq < GD_INT_GET(NUM_AND_TECH_PREREQS); iPrereq++)
+							{
+								TechTypes ePrereq = (TechTypes)pTechEntry->GetPrereqAndTechs(iPrereq);
+								if (ePrereq != NO_TECH && !GET_TEAM(kPlayer.getTeam()).GetTeamTechs()->HasTech(ePrereq))
+								{
+									bAndMet = false;
+									break;
+								}
+							}
+						}
+
+						if (bOrPossible && !bOrValid)
+						{
+							errorCode = "PREREQS_NOT_MET";
+							errorMsg = "Required prerequisite technology not yet researched";
+						}
+						else if (!bAndMet)
+						{
+							errorCode = "PREREQS_NOT_MET";
+							errorMsg = "Required prerequisite technology not yet researched";
+						}
+						else if (!kPlayer.GetPlayerTechs()->CanResearch(eTech))
+						{
+							errorCode = "CANNOT_RESEARCH";
+							errorMsg = "Cannot research this technology";
+						}
+					}
+
+					if (errorCode.empty())
 					{
 						kPlayer.pushResearch(eTech, true);
-
-						CvTechEntry* pTechEntry = GC.getTechInfo(eTech);
-						const char* techName = pTechEntry ? pTechEntry->GetDescription() : "Unknown";
 
 						os << ",\"success\":true,\"player_id\":" << ePlayer;
 						os << ",\"tech_id\":" << techId;
@@ -4206,7 +4270,10 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 					}
 					else
 					{
-						os << ",\"success\":false,\"error\":{\"code\":\"CANNOT_RESEARCH\",\"message\":\"Cannot research this technology\"}";
+						os << ",\"success\":false,\"error\":{\"code\":\"" << errorCode << "\"";
+						os << ",\"message\":\"" << PipeJson::Escape(errorMsg) << "\"";
+						os << ",\"tech_id\":" << techId;
+						os << ",\"tech_name\":\"" << PipeJson::Escape(techName) << "\"}";
 					}
 				}
 			}
