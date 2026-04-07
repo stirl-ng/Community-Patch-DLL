@@ -2685,6 +2685,55 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			os << ",\"city_id\":" << cityId;
 			os << ",\"city_name\":\"" << PipeJson::Escape(pCity->getName()) << "\"";
 
+			// Current production item
+			{
+				OrderTypes eOrder = NO_ORDER;
+				int iItemId = -1;
+				CvString sName = "";
+				if (pCity->getProductionUnit() != NO_UNIT)
+				{
+					eOrder = ORDER_TRAIN;
+					iItemId = pCity->getProductionUnit();
+					CvUnitEntry* pInfo = GC.getUnitInfo((UnitTypes)iItemId);
+					sName = pInfo ? pInfo->GetDescription() : "Unknown";
+				}
+				else if (pCity->getProductionBuilding() != NO_BUILDING)
+				{
+					eOrder = ORDER_CONSTRUCT;
+					iItemId = pCity->getProductionBuilding();
+					CvBuildingEntry* pInfo = GC.getBuildingInfo((BuildingTypes)iItemId);
+					sName = pInfo ? pInfo->GetDescription() : "Unknown";
+				}
+				else if (pCity->getProductionProject() != NO_PROJECT)
+				{
+					eOrder = ORDER_CREATE;
+					iItemId = pCity->getProductionProject();
+					CvProjectEntry* pInfo = GC.getProjectInfo((ProjectTypes)iItemId);
+					sName = pInfo ? pInfo->GetDescription() : "Unknown";
+				}
+				else if (pCity->getProductionProcess() != NO_PROCESS)
+				{
+					eOrder = ORDER_MAINTAIN;
+					iItemId = pCity->getProductionProcess();
+					CvProcessInfo* pInfo = GC.getProcessInfo((ProcessTypes)iItemId);
+					sName = pInfo ? pInfo->GetDescription() : "Unknown";
+				}
+
+				if (eOrder != NO_ORDER)
+				{
+					os << ",\"current_production\":{";
+					os << "\"order_type\":" << (int)eOrder;
+					os << ",\"item_id\":" << iItemId;
+					os << ",\"name\":\"" << PipeJson::Escape(sName) << "\"";
+					os << ",\"turns_remaining\":" << pCity->getProductionTurnsLeft();
+					os << "}";
+				}
+				else
+				{
+					os << ",\"current_production\":null";
+				}
+			}
+
 			// Trainable units (ORDER_TRAIN = 0)
 			os << ",\"trainable_units\":[";
 			bool first = true;
