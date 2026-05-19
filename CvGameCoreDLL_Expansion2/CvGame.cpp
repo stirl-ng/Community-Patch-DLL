@@ -2597,6 +2597,8 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				BuildingTypes eProductionBuilding = pCity->getProductionBuilding();
 				if (eProductionUnit != NO_UNIT)
 				{
+					int iCost = pCity->getProductionNeeded(eProductionUnit);
+					int iProgress = pCity->getUnitProduction(eProductionUnit);
 					os << ",\"production\":{";
 					os << "\"type\":\"unit\"";
 					os << ",\"unit_type\":" << static_cast<int>(eProductionUnit);
@@ -2606,10 +2608,14 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 						os << ",\"name\":\"" << PipeJson::Escape(pUnitInfo->GetDescription()) << "\"";
 					}
 					os << ",\"turns_left\":" << pCity->getProductionTurnsLeft();
+					os << ",\"progress\":" << iProgress;
+					os << ",\"cost\":" << iCost;
 					os << "}";
 				}
 				else if (eProductionBuilding != NO_BUILDING)
 				{
+					int iCost = pCity->getProductionNeeded(eProductionBuilding);
+					int iProgress = pCity->getProduction();
 					os << ",\"production\":{";
 					os << "\"type\":\"building\"";
 					os << ",\"building_type\":" << static_cast<int>(eProductionBuilding);
@@ -2619,6 +2625,8 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 						os << ",\"name\":\"" << PipeJson::Escape(pBuildingInfo->GetDescription()) << "\"";
 					}
 					os << ",\"turns_left\":" << pCity->getProductionTurnsLeft();
+					os << ",\"progress\":" << iProgress;
+					os << ",\"cost\":" << iCost;
 					os << "}";
 				}
 				else
