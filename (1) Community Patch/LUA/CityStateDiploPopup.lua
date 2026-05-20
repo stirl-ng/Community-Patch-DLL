@@ -82,13 +82,11 @@ function ShowHideHandler( bIsHide, bInitState )
  	   Controls.BackgroundImage:UnloadTexture();
        if( not bIsHide ) then
 			Controls.BackgroundImage:SetTexture(lastBackgroundImage);
-        	UI.incTurnTimerSemaphore();
+        	-- No semaphore: this popup is informational; the LLM should not be blocked from ending the turn
         	Events.SerialEventGameMessagePopupShown(m_PopupInfo);
         	-- Reset auto-close timer when popup is shown
         	g_autoCloseTimer = 0
         else
-            UI.decTurnTimerSemaphore();
-
             if(m_PopupInfo ~= nil) then
 				Events.SerialEventGameMessagePopupProcessed.CallImmediate(m_PopupInfo.Type, 0);
 			end
