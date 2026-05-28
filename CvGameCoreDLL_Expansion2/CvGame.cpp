@@ -4481,6 +4481,56 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			return;
 		}
 
+		else if (msgType == "declare_war")
+		{
+			// Declare war on a player
+			std::string requestId = msg.get("request_id").asString();
+			int targetPlayerId = msg.get("player_id").asInt(-1);
+
+			std::ostringstream os;
+			os << "{\"type\":\"declare_war_result\"";
+			if (!requestId.empty())
+				os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+
+			if (targetPlayerId < 0 || targetPlayerId >= MAX_PLAYERS)
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_PARAMS\",\"message\":\"Missing or invalid player_id\"}";
+			}
+			else
+			{
+				PlayerTypes eActivePlayer = getActivePlayer();
+				CvPlayer& kTargetPlayer = GET_PLAYER((PlayerTypes)targetPlayerId);
+
+				if (!kTargetPlayer.isAlive())
+				{
+					os << ",\"success\":false,\"error\":{\"code\":\"PLAYER_NOT_ALIVE\",\"message\":\"Target player is not alive\"}";
+				}
+				else
+				{
+					TeamTypes eActiveTeam = GET_PLAYER(eActivePlayer).getTeam();
+					TeamTypes eTargetTeam = kTargetPlayer.getTeam();
+
+					if (GET_TEAM(eActiveTeam).isAtWar(eTargetTeam))
+					{
+						os << ",\"success\":false,\"error\":{\"code\":\"ALREADY_AT_WAR\",\"message\":\"Already at war with that player\"}";
+					}
+					else if (!GET_TEAM(eActiveTeam).canDeclareWar(eTargetTeam, eActivePlayer))
+					{
+						os << ",\"success\":false,\"error\":{\"code\":\"CANNOT_DECLARE_WAR\",\"message\":\"Cannot declare war on that player\"}";
+					}
+					else
+					{
+						GET_TEAM(eActiveTeam).declareWar(eTargetTeam, false, eActivePlayer);
+						os << ",\"success\":true,\"result\":{\"message\":\"War declared\",\"target_player_id\":" << targetPlayerId << "}";
+					}
+				}
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendMessage(os.str());
+			return;
+		}
+
 		// Unknown message type
 		std::ostringstream os;
 		os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << PipeJson::Escape(msgType) << "\"}";

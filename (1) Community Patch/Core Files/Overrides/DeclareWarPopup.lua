@@ -702,56 +702,23 @@ function View(data)
 	Controls.ButtonStackFrame:ReprocessAnchoring();
 end
 
--- DECLARE WAR MOVE POPUP
--- This popup occurs when a team unit moves onto rival territory
--- or attacks an rival unit
+-- DECLARE WAR PLUNDER TRADE ROUTE POPUP
+-- Notify LLM and cancel; plundering enemy trade routes should be an explicit decision
 PopupLayouts[ButtonPopupTypes.BUTTONPOPUP_DECLAREWAR_PLUNDER_TRADE_ROUTE] = function(popupInfo)
 	local eRivalTeam = popupInfo.Data1;
-	local eOtherTeam = popupInfo.Data2;
-	local popupText;
-	
-	-- If there's no rival team, let the other popup handle the warning.
+
 	if(eRivalTeam == nil or eRivalTeam == -1) then
 		return false;
-	end		
-	
-	-- slewis - removed this because we're no longer upsetting others when trade routes are plundered.
-	--if (eOtherTeam ~= -1) then
-	--	popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR_PLUS_PILLAGE_UPSET", Teams[eRivalTeam]:GetNameKey(), Teams[eOtherTeam]:GetNameKey());
-	--else
-		popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR", Teams[eRivalTeam]:GetNameKey());
-	--end
-	
-	local data = GatherData(Teams[eRivalTeam]:GetLeaderID(), popupText);
-	View(data);
-	
-	-- Initialize 'yes' button.
-	local OnYesClicked = function()
-		-- Send War netmessage.
-		Network.SendChangeWar(eRivalTeam, true);	
-		
-		-- Diplomatic response from AI
-		if (not Teams[eRivalTeam]:IsMinorCiv() and not Teams[eRivalTeam]:IsHuman()) then
-			if (not Game.IsNetworkMultiPlayer()) then
-				Game.DoFromUIDiploEvent( FromUIDiploEventTypes.FROM_UI_DIPLO_EVENT_HUMAN_DECLARES_WAR, Teams[eRivalTeam]:GetLeaderID(), 0, 0 );
-			end
-		end
-		
-		if (eOtherTeam ~= -1) then
-			Network.SendIgnoreWarning(eOtherTeam);
-		end
-		
-		Game.SelectionListGameNetMessage(GameMessageTypes.GAMEMESSAGE_PUSH_MISSION, MissionTypes.MISSION_PLUNDER_TRADE_ROUTE, -1, -1, 0, false, false);
 	end
-	
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_YES");
-	AddButton(buttonText, OnYesClicked);
-	
-	-- Initialize 'no' button.
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_NO");
-	AddButton(buttonText, nil);	
-	
-	return true;
+
+	local rivalName = Teams[eRivalTeam]:GetName();
+	local json = string.format(
+		'{"type":"declare_war_warning","player_id":%d,"turn":%d,"rival_player_id":%d,"rival_name":"%s","cause":"plunder_trade_route","can_open_borders":false,"tile_x":-1,"tile_y":-1}',
+		Game.GetActivePlayer(), Game.GetGameTurn(), Teams[eRivalTeam]:GetLeaderID(), rivalName:gsub('"', '\\"')
+	);
+	Game.SendPipeMessage(json);
+	Events.SerialEventGameMessagePopupProcessed.CallImmediate(popupInfo.Type, 0);
+	return false;
 end
 
 -- DECLARE WAR MOVE POPUP
@@ -783,100 +750,48 @@ PopupLayouts[ButtonPopupTypes.BUTTONPOPUP_DECLAREWARMOVE] = function(popupInfo)
 			return false;
 		end
 
-		-- If not a Minor and allowed to make open borders, ask about that
-		if (not owner:IsMinorCiv() and Teams[Game.GetActiveTeam()]:IsOpenBordersTradingAllowedWithTeam(plot:GetTeam())) then
-			popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR", Teams[eRivalTeam]:GetNameKey());
-			popupText = popupText .. "[NEWLINE]" .. Locale.ConvertTextKey("TXT_KEY_POPUP_ENTER_WITH_OPEN_BORDERS");
-			
-		-- Normal DoW message
-		else
-			if (owner:IsMinorCiv()) then
-				popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_ENTER_CITY_STATE_WAR", Teams[eRivalTeam]:GetNameKey());			
-			else
-				popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_ENTER_LANDS_WAR", Teams[eRivalTeam]:GetNameKey());			
-			end
-		end
-		
-	-- Declaring war by attacking Unit
+		-- Major civ territory entry: notify LLM and cancel move
+		local canOpenBorders = Teams[Game.GetActiveTeam()]:IsOpenBordersTradingAllowedWithTeam(plot:GetTeam());
+		local rivalName = Teams[eRivalTeam]:GetName();
+		local json = string.format(
+			'{"type":"declare_war_warning","player_id":%d,"turn":%d,"rival_player_id":%d,"rival_name":"%s","cause":"move_into_territory","can_open_borders":%s,"tile_x":%d,"tile_y":%d}',
+			Game.GetActivePlayer(), Game.GetGameTurn(), Teams[eRivalTeam]:GetLeaderID(), rivalName:gsub('"', '\\"'),
+			canOpenBorders and "true" or "false", iX, iY
+		);
+		Game.SendPipeMessage(json);
+
+	-- Declaring war by attacking unit
 	else
-	    popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR", Teams[eRivalTeam]:GetNameKey());
+		local rivalName = Teams[eRivalTeam]:GetName();
+		local json = string.format(
+			'{"type":"declare_war_warning","player_id":%d,"turn":%d,"rival_player_id":%d,"rival_name":"%s","cause":"attack_unit","can_open_borders":false,"tile_x":%d,"tile_y":%d}',
+			Game.GetActivePlayer(), Game.GetGameTurn(), Teams[eRivalTeam]:GetLeaderID(), rivalName:gsub('"', '\\"'),
+			iX or -1, iY or -1
+		);
+		Game.SendPipeMessage(json);
 	end
-	
-	local data = GatherData(Teams[eRivalTeam]:GetLeaderID(), popupText);
-	View(data);
-	
-	-- Initialize 'yes' button.
-	local OnYesClicked = function()
-		-- Send War netmessage.
-		Network.SendChangeWar(eRivalTeam, true);
-		
-		-- Diplomatic response from AI
-		if (not Teams[eRivalTeam]:IsMinorCiv() and not Teams[eRivalTeam]:IsHuman()) then
-			if (not Game.IsNetworkMultiPlayer() or plot == nil) then
-				Game.DoFromUIDiploEvent( FromUIDiploEventTypes.FROM_UI_DIPLO_EVENT_HUMAN_DECLARES_WAR, Teams[eRivalTeam]:GetLeaderID(), 0, 0 );
-			end
-		end
-		
-		-- Tell unit to move to position.
-		if(plot ~= nil) then
-			Game.SelectionListMove(plot, false, false, false);
-		end
-	end
-	
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_YES");
-	AddButton(buttonText, OnYesClicked);
-	
-	-- Initialize 'no' button.
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_NO");
-	AddButton(buttonText, nil);
-	
-	return true;
+
+	Events.SerialEventGameMessagePopupProcessed.CallImmediate(popupInfo.Type, 0);
+	return false;
 end
 
 -- DECLARE WAR RANGE STRIKE POPUP
--- This popup occurs when a team unit attempts a range strike
--- attack on a rival unit or city.
+-- Notify LLM and cancel; range-striking across a war boundary should be an explicit decision
 PopupLayouts[ButtonPopupTypes.BUTTONPOPUP_DECLAREWARRANGESTRIKE] = function(popupInfo)
-	local eRivalTeam	= popupInfo.Data1;
-	local iX			= popupInfo.Data2;
-	local iY			= popupInfo.Data3;
+	local eRivalTeam = popupInfo.Data1;
+	local iX         = popupInfo.Data2;
+	local iY         = popupInfo.Data3;
 
 	local rivalTeam = Teams[eRivalTeam];
-	popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR", rivalTeam:GetName());
-		
-	local data = GatherData(Teams[eRivalTeam]:GetLeaderID(), popupText);
-	View(data);
-	
-	-- Initialize 'yes' button.
-	local OnYesClicked = function()
-		-- Send War netmessage.
-		Network.SendChangeWar(eRivalTeam, true);
-
-		-- Diplomatic response from AI
-		if (not rivalTeam:IsMinorCiv() and not rivalTeam:IsHuman()) then
-			if (not Game.IsNetworkMultiPlayer()) then
-				Game.DoFromUIDiploEvent( FromUIDiploEventTypes.FROM_UI_DIPLO_EVENT_HUMAN_DECLARES_WAR, rivalTeam:GetLeaderID(), 0, 0 );
-			end
-		end
-		
-		-- Attack!
-		local messagePushMission = GameMessageTypes.GAMEMESSAGE_PUSH_MISSION
-		local missionRangeAttack = MissionTypes.MISSION_RANGE_ATTACK
-		Game.SelectionListGameNetMessage(messagePushMission, missionRangeAttack, iX, iY);
-		
-		local interfaceModeSelection = InterfaceModeTypes.INTERFACEMODE_SELECTION
-		UI.SetInterfaceMode(interfaceModeSelection);
-		
-	end
-	
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_YES");
-	AddButton(buttonText, OnYesClicked);
-		
-	-- Initialize 'no' button.
-	local buttonText = Locale.ConvertTextKey("TXT_KEY_DECLARE_WAR_NO");
-	AddButton(buttonText, nil);
-	
-	return true;
+	local rivalName = rivalTeam:GetName();
+	local json = string.format(
+		'{"type":"declare_war_warning","player_id":%d,"turn":%d,"rival_player_id":%d,"rival_name":"%s","cause":"range_strike","can_open_borders":false,"tile_x":%d,"tile_y":%d}',
+		Game.GetActivePlayer(), Game.GetGameTurn(), rivalTeam:GetLeaderID(), rivalName:gsub('"', '\\"'),
+		iX or -1, iY or -1
+	);
+	Game.SendPipeMessage(json);
+	Events.SerialEventGameMessagePopupProcessed.CallImmediate(popupInfo.Type, 0);
+	return false;
 end
 
 
