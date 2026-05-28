@@ -145,7 +145,7 @@ end
 ------------------------------------------------------------------
 function PopulateUniqueBonuses( controlTable, civ, _, extendedTooltip, noTooltip)
 
-	local maxSmallButtons = 4;
+	local maxSmallButtons = GameDefines.NUM_UNIQUE_COMPONENTS;
 	local BonusText = {};
 
 	function PopulateButton(button, buttonFrame)
@@ -171,8 +171,34 @@ function PopulateUniqueBonuses( controlTable, civ, _, extendedTooltip, noTooltip
 			AdjustArtOnUniqueImprovementButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
  			button, buttonFrame = coroutine.yield(row.Description);
 		end
-		
+
+		-- 5/6 UC improvements using Trait_BuildsUnitClasses and OrderPriority
+		for row in DB.Query([[
+			Type IN (
+			  SELECT b.ImprovementType
+			  FROM Civilization_Leaders cl
+			  JOIN Leader_Traits lt
+			    ON lt.LeaderType = cl.LeaderheadType
+			  JOIN Trait_BuildsUnitClasses tbu
+			    ON tbu.TraitType = lt.TraitType
+			  JOIN Builds b
+			    ON b.Type = tbu.BuildType
+			  WHERE cl.CivilizationType = ']] .. thisCiv.Type .. [['
+			    AND b.OrderPriority = 90
+			)
+			]], civ.Type) do
+			AdjustArtOnUniqueImprovementButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
+ 			button, buttonFrame = coroutine.yield(row.Description);
+		end
+
 		for row in DB.Query([[SELECT ID, Description, PortraitIndex, IconAtlas from Projects where CivilizationType = ?]], civ.Type) do
+			AdjustArtOnUniqueProjectButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
+ 			button, buttonFrame = coroutine.yield(row.Description);
+		end
+
+		-- 5/6 UC projects use PolicyType
+		for row in DB.Query([[SELECT DISTINCT p.ID, p.Description, p.PortraitIndex, p.IconAtlas 
+			FROM Projects p JOIN Civilizations c ON p.PolicyType = c.PolicyForUserInterface WHERE c.Type = ?]], civ.Type) do
 			AdjustArtOnUniqueProjectButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
  			button, buttonFrame = coroutine.yield(row.Description);
 		end
@@ -186,7 +212,7 @@ function PopulateUniqueBonuses( controlTable, civ, _, extendedTooltip, noTooltip
 
 		local button = controlTable[buttonName];
 		local buttonFrame = controlTable[buttonFrameName];
-		
+
 		if(button and buttonFrame) then
 			button:SetHide(true);
 			buttonFrame:SetHide(true);
@@ -221,12 +247,20 @@ function PopulateUniqueBonuses_CreateCached()
 								Civilization_BuildingClassOverrides.BuildingType IS NOT NULL]]);
 								
 	local uniqueImprovementsQuery = DB.CreateQuery([[SELECT ID, Description, PortraitIndex, IconAtlas from Improvements where CivilizationType = ?]]);
+
+	-- 5/6 UC
+	local culturalImprovementsQuery = DB.CreateQuery([[SELECT DISTINCT i.ID, i.Description, i.PortraitIndex, i.IconAtlas from Improvements i, Civilization_Leaders cl, Leader_Traits lt, Trait_BuildsUnitClasses tbuc, Builds b 
+		where cl.CivilizationType = ? and lt.LeaderType = cl.LeaderheadType and lt.TraitType = tbuc.TraitType and tbuc.BuildType = b.Type and i.Type = b.ImprovementType and b.OrderPriority=90]]);
 	
 	local uniqueProjectsQuery = DB.CreateQuery([[SELECT ID, Description, PortraitIndex, IconAtlas from Projects where CivilizationType = ?]]);
-	
-	
-	return function(controlTable, civType, extendedTooltip, noTooltip) 
-		local maxSmallButtons = 4;
+
+	-- 5/6 UC
+	local culturalProjectsQuery = DB.CreateQuery([[SELECT DISTINCT p.ID, p.Description, p.PortraitIndex, p.IconAtlas 
+			FROM Projects p JOIN Civilizations c ON p.PolicyType = c.PolicyForUserInterface WHERE c.Type = ?]]);
+
+
+	return function(controlTable, civType, extendedTooltip, noTooltip)
+		local maxSmallButtons = GameDefines.NUM_UNIQUE_COMPONENTS;
 		local BonusText = {};
 
 		local textureSize = 64;
@@ -257,26 +291,56 @@ function PopulateUniqueBonuses_CreateCached()
 				end
 				
 				if(#buttonFuncs < maxSmallButtons) then	
-				for row in uniqueProjectsQuery(civType) do
-					table.insert(buttonFuncs, function(button, buttonFrame)
-						AdjustArtOnUniqueProjectButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
-						return row.Description;
-					end);
+					for row in uniqueProjectsQuery(civType) do
+						table.insert(buttonFuncs, function(button, buttonFrame)
+							AdjustArtOnUniqueProjectButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
+							return row.Description;
+						end);
+					end
+		
+					if(#buttonFuncs < maxSmallButtons) then	
+						for row in culturalImprovementsQuery(civType) do
+							table.insert(buttonFuncs, function(button, buttonFrame)
+								AdjustArtOnUniqueImprovementButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
+								return row.Description;
+							end);
+						end
+
+						if(#buttonFuncs < maxSmallButtons) then	
+							for row in culturalProjectsQuery(civType) do
+								table.insert(buttonFuncs, function(button, buttonFrame)
+									AdjustArtOnUniqueProjectButton( button, buttonFrame, row, textureSize, extendedTooltip, noTooltip);
+									return row.Description;
+								end);
+							end
+						end
+					end
 				end
 			end
+		end
+
+		-- Hide all buttons first
+		for buttonNum = 1, 6, 1 do
+			local buttonName = "B"..tostring(buttonNum);
+			local buttonFrameName = "BF"..tostring(buttonNum);
+			local button = controlTable[buttonName];
+			local buttonFrame = controlTable[buttonFrameName];
+
+			if(button and buttonFrame) then
+				button:SetHide(true);
+				buttonFrame:SetHide(true);
 			end
 		end
-	
+
+		-- Show only the buttons with content
 		for buttonNum = 1, maxSmallButtons, 1 do
 			local buttonName = "B"..tostring(buttonNum);
 			local buttonFrameName = "BF"..tostring(buttonNum);
 
 			local button = controlTable[buttonName];
 			local buttonFrame = controlTable[buttonFrameName];
-			
+
 			if(button and buttonFrame and #buttonFuncs >= buttonNum) then
-				button:SetHide(true);
-				buttonFrame:SetHide(true);
 				local text = buttonFuncs[buttonNum](button, buttonFrame);
 				table.insert(BonusText, text);
 

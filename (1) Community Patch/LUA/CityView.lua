@@ -739,11 +739,19 @@ local function BuildProductionBox(pCity, ePlayer)
 		Hide(Controls.b1remove);
 	end
 
-	if ePlayer == eActivePlayer then
-		Enable(Controls.PurchaseButton);
+	if ePlayer == eActivePlayer  then
+		Show(Controls.ProductionButton, Controls.PurchaseButton);
+		if pCity:IsIgnoreCityForHappiness() then
+			Disable(Controls.ProductionButton, Controls.PurchaseButton);
+		elseif pCity:IsPuppet() then
+			Disable(Controls.ProductionButton);
+			Enable(Controls.PurchaseButton);
+		else
+			Enable(Controls.ProductionButton, Controls.PurchaseButton);
+		end
 	else
 		Hide(Controls.AutomateProduction);
-		Disable(Controls.ProductionButton, Controls.PurchaseButton);
+		Hide(Controls.ProductionButton, Controls.PurchaseButton);
 	end
 end
 
@@ -950,7 +958,7 @@ local function BuildBuildingBox(pCity)
 	end
 
 	-- Urbanization-free specialists
-	if MOD_BALANCE_VP and next(tSpecialistBuildings) and tRightSideSections.SpecialistBuildingHeader.HeadingOpen then
+	if MOD_BALANCE_VP and next(tSpecialistBuildings) and tRightSideSections.SpecialistBuildingHeader.HeadingOpen and not pCity:IsPuppet() then
 		local iNumFreeSpecialists = pCity:GetRemainingFreeSpecialists();
 		if iNumFreeSpecialists > 0 then
 			Controls.FreeSpecialistLabel:SetText(iNumFreeSpecialists);
@@ -1309,7 +1317,7 @@ local function UpdateViewFull()
 	-- Buy tile button
 	Controls.BuyPlotButton:LocalizeAndSetToolTip("TXT_KEY_CITYVIEW_BUY_TILE_TT");
 	Controls.BuyPlotText:LocalizeAndSetText("TXT_KEY_CITYVIEW_BUY_TILE");
-	if GameDefines.BUY_PLOTS_DISABLED ~= 0 then
+	if GameDefines.BUY_PLOTS_DISABLED ~= 0 or pCity:IsIgnoreCityForHappiness() then
 		Disable(Controls.BuyPlotButton);
 	-- Allow cities owned by the active player to always buy plots
 	-- This is to enable tile purchase on Venetian puppets which are always on viewing mode
@@ -1321,12 +1329,10 @@ local function UpdateViewFull()
 	end
 
 	-- Raze/unraze button
-	local bCanRazeOrUnraze = false;
 	if not bOccupied or bRazing then
 		Hide(Controls.RazeCityButton);
 	-- Can we actually raze this city?
 	elseif pPlayer:CanRaze(pCity, false) then
-		bCanRazeOrUnraze = true;
 		Show(Controls.RazeCityButton);
 		Enable(Controls.RazeCityButton);
 		Controls.RazeCityButton:LocalizeAndSetToolTip("TXT_KEY_CITYVIEW_RAZE_BUTTON_TT");
@@ -1341,15 +1347,13 @@ local function UpdateViewFull()
 	end
 
 	if bRazing then
-		bCanRazeOrUnraze = true;
 		Show(Controls.UnrazeCityButton);
+		Enable(Controls.UnrazeCityButton);
 	else
 		Hide(Controls.UnrazeCityButton);
 	end
 
-	if bViewingMode and bCanRazeOrUnraze then
-		Enable(Controls.RazeCityButton, Controls.UnrazeCityButton);
-	else
+	if bViewingMode then
 		Disable(Controls.RazeCityButton, Controls.UnrazeCityButton);
 	end
 
@@ -1426,6 +1430,10 @@ local function UpdateViewFull()
 		Controls.HappinessPerTurnLabel:LocalizeAndSetText("TXT_KEY_NET_HAPPINESS_TEXT", pCity:GetLocalHappiness());
 		Controls.UnhappinessBox:SetToolTipString(GetCityUnhappinessTooltip(pCity));
 		Controls.UnhappinessPerTurnLabel:LocalizeAndSetText("TXT_KEY_NET_UNHAPPINESS_TEXT", pCity:GetUnhappinessAggregated());
+		-- when using large-scale interface we need to resize the background box to accomodate the new entries
+		if Controls.InfoBG then
+			Controls.InfoBG:SetSizeY(420);
+		end
 	else
 		Hide(Controls.HappinessBox, Controls.UnhappinessBox);
 		Refresh(Controls.TopLeftStack);

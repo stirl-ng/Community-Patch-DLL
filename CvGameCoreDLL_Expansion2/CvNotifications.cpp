@@ -528,21 +528,30 @@ bool CvNotifications::GetEndTurnBlockedType(EndTurnBlockingTypes& eBlockingType,
 				break;
 
 			case NOTIFICATION_FREE_POLICY:
-				eBlockingType = ENDTURN_BLOCKING_FREE_POLICY;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_POLICY_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_FREE_POLICY;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_TECH:
-				eBlockingType = ENDTURN_BLOCKING_RESEARCH;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_TECH_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_RESEARCH;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_FREE_TECH:
-				eBlockingType = ENDTURN_BLOCKING_FREE_TECH;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_TECH_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_FREE_TECH;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_FREE_GREAT_PERSON:
@@ -552,21 +561,30 @@ bool CvNotifications::GetEndTurnBlockedType(EndTurnBlockingTypes& eBlockingType,
 				break;
 
 			case NOTIFICATION_FOUND_PANTHEON:
-				eBlockingType = ENDTURN_BLOCKING_FOUND_PANTHEON;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_RELIGION_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_FOUND_PANTHEON;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_FOUND_RELIGION:
-				eBlockingType = ENDTURN_BLOCKING_FOUND_RELIGION;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_RELIGION_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_FOUND_RELIGION;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_ENHANCE_RELIGION:
-				eBlockingType = ENDTURN_BLOCKING_ENHANCE_RELIGION;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_RELIGION_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_ENHANCE_RELIGION;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_SPY_STOLE_TECH:
@@ -588,9 +606,12 @@ bool CvNotifications::GetEndTurnBlockedType(EndTurnBlockingTypes& eBlockingType,
 				break;
 
 			case NOTIFICATION_ADD_REFORMATION_BELIEF:
-				eBlockingType = ENDTURN_BLOCKING_ADD_REFORMATION_BELIEF;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_RELIGION_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_ADD_REFORMATION_BELIEF;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_LEAGUE_CALL_FOR_PROPOSALS:
@@ -612,9 +633,12 @@ bool CvNotifications::GetEndTurnBlockedType(EndTurnBlockingTypes& eBlockingType,
 				break;
 
 			case NOTIFICATION_CHOOSE_IDEOLOGY:
-				eBlockingType = ENDTURN_BLOCKING_CHOOSE_IDEOLOGY;
-				iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
-				return true;
+				if (GET_PLAYER(m_ePlayer).isHuman(ISHUMAN_AI_POLICY_CHOICE))
+				{
+					eBlockingType = ENDTURN_BLOCKING_CHOOSE_IDEOLOGY;
+					iNotificationIndex = m_aNotifications[iIndex].m_iLookupIndex;
+					return true;
+				}
 				break;
 
 			case NOTIFICATION_PLAYER_DEAL_RECEIVED:
@@ -1285,7 +1309,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_FREE_TECH:
 	{
@@ -1311,7 +1334,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_POLICY:
 	{
@@ -1337,7 +1359,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_FREE_POLICY:
 	{
@@ -1363,7 +1384,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_PRODUCTION:
 	{
@@ -1390,7 +1410,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_CITY_TILE:
 	{
@@ -1419,7 +1438,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_ENEMY_IN_TERRITORY:
 	{
@@ -1444,7 +1462,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_UNIT_PROMOTION:
 	{
@@ -1472,7 +1489,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_DIPLOMACY_DECLARATION:
 	{
@@ -1509,7 +1525,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_FOUND_PANTHEON:
 	case NOTIFICATION_FOUND_RELIGION:
@@ -1540,7 +1555,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_LEAGUE_CALL_FOR_PROPOSALS:
 	case NOTIFICATION_LEAGUE_CALL_FOR_VOTES:
@@ -1567,7 +1581,6 @@ bool CvNotifications::IsNotificationRedundant(Notification& notification)
 		}
 		return false;
 	}
-	break;
 
 	case NOTIFICATION_LEAGUE_PROJECT_COMPLETE:
 	case NOTIFICATION_LEAGUE_PROJECT_PROGRESS:
@@ -1642,7 +1655,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		else if(!pCity->CanRangeStrikeNow())
 			return true;
 	}
-	break;
 
 	case NOTIFICATION_GOODY:
 	{
@@ -1684,7 +1696,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		//Expire this notification if there are no more techs that can be researched at this time.
 		return pkPlayerTechs->GetNumTechsCanBeResearched() == 0;
 	}
-	break;
 	case NOTIFICATION_FREE_TECH:
 	{
 		CvPlayerAI& kPlayer = GET_PLAYER(m_ePlayer);
@@ -1909,7 +1920,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		CvGameReligions* pkReligions(kGame.GetGameReligions());
 		return pkReligions->CanCreatePantheon(m_ePlayer, true) != CvGameReligions::FOUNDING_OK;
 	}
-	break;
 
 	case NOTIFICATION_ADD_REFORMATION_BELIEF:
 	{
@@ -1928,7 +1938,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 
 		return pkReligions->HasCreatedReligion(m_ePlayer);
 	}
-	break;
 
 	case NOTIFICATION_ENHANCE_RELIGION:
 	{
@@ -1944,14 +1953,12 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		const CvReligion* pReligion = pkReligions->GetReligion(eReligion, m_ePlayer);
 		return (NULL != pReligion && pReligion->m_bEnhanced);
 	}
-	break;
 
 	case NOTIFICATION_SPY_STOLE_TECH:
 	{
 		CvPlayerEspionage* pEspionage = GET_PLAYER(m_ePlayer).GetEspionage();
 		return pEspionage->m_aiNumTechsToStealList[m_aNotifications[iIndex].m_iGameDataIndex] <= 0;
 	}
-	break;
 
 	case NOTIFICATION_LEAGUE_CALL_FOR_PROPOSALS:
 	{
@@ -1959,7 +1966,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetLeague(eLeague);
 		return !pLeague->CanPropose(m_ePlayer);
 	}
-	break;
 
 	case NOTIFICATION_CHOOSE_ARCHAEOLOGY:
 	{
@@ -1985,7 +1991,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		CvLeague* pLeague = GC.getGame().GetGameLeagues()->GetLeague(eLeague);
 		return !pLeague->CanVote(m_ePlayer);
 	}
-	break;
 
 	case NOTIFICATION_PLAYER_CONNECTING:
 	{
@@ -2045,7 +2050,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		}
 		return true;
 	}
-	break;
 	case -1608954742:
 	{
 		CityEventTypes eCityEvent = (CityEventTypes)m_aNotifications[iIndex].m_iGameDataIndex;
@@ -2060,7 +2064,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		}
 		return true;
 	}
-	break;
 	case 419811917: // Player Event Notification
 	{
 		EventTypes eEvent = (EventTypes)m_aNotifications[iIndex].m_iGameDataIndex;
@@ -2104,7 +2107,6 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		}
 		return true;
 	}
-	break;
 	case -364200720:
 	{
 		CvCity* pCity = GC.getMap().plot(m_aNotifications[iIndex].m_iX, m_aNotifications[iIndex].m_iY)->getPlotCity();
@@ -2114,13 +2116,11 @@ bool CvNotifications::IsNotificationExpired(int iIndex)
 		if (!pCity->isPendingCapture())
 			return true;
 	}
-	break;
 
 	default:	// don't expire
 	{
 		return false;
 	}
-	break;
 	}
 
 	return false;

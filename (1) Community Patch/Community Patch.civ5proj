@@ -5,16 +5,16 @@
     <ProjectGuid>{0d66d522-b624-4bc5-acfe-15a0c5b729f4}</ProjectGuid>
     <Name>(1) Community Patch</Name>
     <Guid>d1b6328c-ff44-4b0d-aad7-c657f83610cd</Guid>
-    <ModVersion>147</ModVersion>
+    <ModVersion>149</ModVersion>
     <Stability>Stable</Stability>
-    <Teaser>(5.0.1) Bugfixes, AI Improvements, Game Optimizations and API Extensions for Civ V</Teaser>
+    <Teaser>(5.2.7) Bugfixes, AI Improvements, Game Optimizations and API Extensions for Civ V</Teaser>
     <Description>Contains core AI improvements and bugfixes for the Civ 5 BNW DLL. Also contains support for the Vox Populi unofficial expansion and its associated mods.</Description>
     <Authors>CivFanatics Community Patch Project Team</Authors>
     <SpecialThanks>
     </SpecialThanks>
     <Categories>$Categories$</Categories>
     <AffectsSavedGames>true</AffectsSavedGames>
-    <MinCompatibleSaveVersion>147</MinCompatibleSaveVersion>
+    <MinCompatibleSaveVersion>149</MinCompatibleSaveVersion>
     <SupportsSinglePlayer>true</SupportsSinglePlayer>
     <SupportsMultiplayer>true</SupportsMultiplayer>
     <SupportsHotSeat>true</SupportsHotSeat>
@@ -33,6 +33,69 @@
         <Id />
         <MinVersion>1.0.3.124</MinVersion>
         <MaxVersion>1.0.3.999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Babylon (Nebuchadnezzar II)</Name>
+        <Id>7459BA32-5764-44ae-8E95-01AD0E0EFD48</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Civilization and Scenario Pack: Mongols (Genghis Khan)</Name>
+        <Id>293C1EE3-1176-44f6-AC1F-59663826DE74</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Civilization and Scenario Double Pack: Spain and Inca</Name>
+        <Id>B685D5DE-7CCA-4e75-81B4-2F60754E6330</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Civilization and Scenario Pack: Polynesia</Name>
+        <Id>ECF7C605-BA11-4CAC-8D80-D71306AAC471</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Civilization and Scenario Pack: Denmark (The Vikings)</Name>
+        <Id>B3030D39-C0D8-4bc7-91B1-7AD1CAF585AB</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Civilization and Scenario Pack: Korea</Name>
+        <Id>112C22B2-5308-42b6-B734-171CCAB3037B</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Scenario Pack: Wonders of the Ancient World</Name>
+        <Id>BBB0D085-A0B1-4475-B007-3E549CF3ADC3</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Scenario Pack: Conquest of the New World</Name>
+        <Id>EA67AED5-5859-4875-BF3A-360FE9E55D1B</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
+      </Association>
+      <Association>
+        <Type>Dlc</Type>
+        <Name>Expansion - Gods and Kings</Name>
+        <Id>0E3751A1-F840-4e1b-9706-519BF484E59D</Id>
+        <MinVersion>0</MinVersion>
+        <MaxVersion>999</MaxVersion>
       </Association>
       <Association>
         <Type>Dlc</Type>
@@ -124,6 +187,11 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Civilizations\CivilizationTableChanges.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Civilizations\NewTraitTables.xml</FileName>
       </Action>
       <Action>
@@ -155,6 +223,11 @@
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Mod Support\NewDiploModifierTables.xml</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Notifications\NewNotificationTables.xml</FileName>
       </Action>
       <Action>
         <Set>OnModActivated</Set>
@@ -214,6 +287,16 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\City\Buildings\BuildingTableFixes.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Notifications\NotificationTableFixes.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\GameSpeedTableChanges.sql</FileName>
       </Action>
       <Action>
@@ -265,6 +348,11 @@
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Minors\MinorTableChanges.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Notifications\CoreNewNotifications.xml</FileName>
       </Action>
       <Action>
         <Set>OnModActivated</Set>
@@ -394,11 +482,6 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
-        <FileName>Database Changes\CoreNewNotifications.xml</FileName>
-      </Action>
-      <Action>
-        <Set>OnModActivated</Set>
-        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\CoreNewReplayDataSets.xml</FileName>
       </Action>
       <Action>
@@ -465,6 +548,16 @@
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Minors\CoreNewMinorQuests.xml</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Minors\CoreNewMinorTables.xml</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Minors\CoreMinorYieldChanges.sql</FileName>
       </Action>
       <Action>
         <Set>OnModActivated</Set>
@@ -684,6 +777,11 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Misc\MissionsChanges.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\WorldMap\Improvements\CoreBuildSweeps.sql</FileName>
       </Action>
       <Action>
@@ -705,6 +803,11 @@
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Text\en_US\CoreNewEnumText.xml</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Text\en_US\CoreGameOptionTextChanges.xml</FileName>
       </Action>
       <Action>
         <Set>OnModActivated</Set>
@@ -819,6 +922,11 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
+        <FileName>Database Changes\Text\en_US\Policies\CorePolicyTextChanges.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\Text\en_US\Religions\CoreReligionTextChanges.sql</FileName>
       </Action>
       <Action>
@@ -864,11 +972,6 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
-        <FileName>Database Changes\DatabaseIndexes.sql</FileName>
-      </Action>
-      <Action>
-        <Set>OnModActivated</Set>
-        <Type>UpdateDatabase</Type>
         <FileName>Database Changes\CoreTriggers.sql</FileName>
       </Action>
       <Action>
@@ -879,10 +982,21 @@
       <Action>
         <Set>OnModActivated</Set>
         <Type>UpdateDatabase</Type>
-        <FileName>Database Changes/Misc/NotificationsChanges.sql</FileName>
+        <FileName>Database Migrations/2025_01_27_AddTableIndexes.sql</FileName>
+      </Action>
+      <Action>
+        <Set>OnModActivated</Set>
+        <Type>UpdateDatabase</Type>
+        <FileName>Database Migrations/2026_01_17_FixTypeConstraints.sql</FileName>
       </Action>
     </ModActions>
     <ModContent>
+      <Content>
+        <Type>InGameUIAddin</Type>
+        <Name>Destination</Name>
+        <Description>Destination</Description>
+        <FileName>Core Files/New Lua/Destination.lua</FileName>
+      </Content>
       <Content>
         <Type>InGameUIAddin</Type>
         <Name>GlobalCityBombardRange</Name>
@@ -976,6 +1090,7 @@
     <Folder Include="Database Changes\Minors" />
     <Folder Include="Database Changes\Mod Support" />
     <Folder Include="Database Changes\Misc" />
+    <Folder Include="Database Changes\Notifications" />
     <Folder Include="Database Changes\Policies" />
     <Folder Include="Database Changes\Religions" />
     <Folder Include="Database Changes\Tech" />
@@ -988,6 +1103,7 @@
     <Folder Include="Database Changes\Text\en_US\Espionage" />
     <Folder Include="Database Changes\Text\en_US\Minors" />
     <Folder Include="Database Changes\Text\en_US\Notifications" />
+    <Folder Include="Database Changes\Text\en_US\Policies" />
     <Folder Include="Database Changes\Text\en_US\Religions" />
     <Folder Include="Database Changes\Text\en_US\UI" />
     <Folder Include="Database Changes\Text\en_US\UnitPromotions" />
@@ -1017,10 +1133,12 @@
     <Folder Include="Kit\UI\Control" />
     <Folder Include="Kit\UI\Control\Instance" />
     <Folder Include="Kit\Util\" />
+    <Folder Include="Kit\Util\Format" />
     <Folder Include="LUA" />
     <Folder Include="LUA\Includes" />
     <Folder Include="Mapscripts" />
     <Folder Include="Kit" />
+    <Folder Include="Database Migrations" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\DoMImages\dom_catherine.dds">
@@ -2419,6 +2537,10 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Assets\UI\Blank.dds">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Assets\UI\citizenCivilServant.dds">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -2440,6 +2562,10 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Assets\UI\DC45_Corporations.dds">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Assets\UI\DC45_Generic.dds">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -2483,6 +2609,14 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Assets\UI\vassal80.dds">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Assets\UI\vassal80hl.dds">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Assets\WonderSplashImages\wonderconceptbroadway.dds">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -2514,6 +2648,10 @@
     <Content Include="Assets\Yields\YieldAtlas_128_Tourism.dds">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Core Files\New Lua\Destination.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
     <Content Include="Core Files\New Lua\GlobalCityBombardRange.lua">
       <SubType>Lua</SubType>
@@ -2695,6 +2833,10 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Core Files\Overrides\Includes\FLuaVector.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Core Files\Overrides\InGame.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -2803,11 +2945,27 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Core Files\Overrides\WonderPopup.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Core Files\Overrides\WonderPopup.xml">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Core Files\Overrides\WorldView.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Core Files\Overrides\WorldView.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Core Files\Overrides\YieldIconManager.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Core Files\Overrides\YieldIconManager.xml">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -2832,6 +2990,10 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Core Files\Overrides\Includes\TechHelpInclude.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Core Files\Overrides\Includes\TradeLogic.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -2887,10 +3049,6 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
-    <Content Include="Database Changes\CoreNewNotifications.xml">
-      <SubType>Lua</SubType>
-      <ImportIntoVFS>False</ImportIntoVFS>
-    </Content>
     <Content Include="Database Changes\CoreNewReplayDataSets.xml">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
@@ -2903,15 +3061,11 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
-    <Content Include="Database Changes\DatabaseIndexes.sql">
-      <SubType>Lua</SubType>
-      <ImportIntoVFS>False</ImportIntoVFS>
-    </Content>
     <Content Include="Database Changes\GameSpeedTableChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
-    <Content Include="Database Changes\Misc\NotificationsChanges.sql">
+    <Content Include="Database Changes\Misc\MissionsChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3019,6 +3173,10 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
+    <Content Include="Database Changes\City\Buildings\BuildingTableFixes.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
     <Content Include="Database Changes\City\Buildings\CoreBuildingChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
@@ -3056,6 +3214,10 @@
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
     <Content Include="Database Changes\Civilizations\NewCivilizationTables.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Civilizations\CivilizationTableChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3131,7 +3293,15 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
+    <Content Include="Database Changes\Minors\CoreMinorYieldChanges.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
     <Content Include="Database Changes\Minors\CoreNewMinorQuests.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Minors\CoreNewMinorTables.xml">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3140,6 +3310,18 @@
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
     <Content Include="Database Changes\Minors\MinorTableChanges.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Notifications\CoreNewNotifications.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Notifications\NewNotificationTables.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Notifications\NotificationTableFixes.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3196,6 +3378,10 @@
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
     <Content Include="Database Changes\Tech\TechTableChanges.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Text\en_US\CoreGameOptionTextChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3272,6 +3458,10 @@
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
     <Content Include="Database Changes\Text\en_US\Notifications\CoreNotificationTextChanges.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Changes\Text\en_US\Policies\CorePolicyTextChanges.sql">
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
@@ -3495,6 +3685,14 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>False</ImportIntoVFS>
     </Content>
+    <Content Include="Database Migrations\2025_01_27_AddTableIndexes.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
+    <Content Include="Database Migrations\2026_01_17_FixTypeConstraints.sql">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>False</ImportIntoVFS>
+    </Content>
     <Content Include="Kit\Args\CPK.Args.Each.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -3528,6 +3726,10 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Kit\Assert\CPK.Assert.IsFunction.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\Assert\CPK.Assert.IsInteger.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3607,6 +3809,10 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Kit\FP\CPK.FP.Void.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Kit\Misc\CPK.Misc.AsPercentage.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -3616,6 +3822,18 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Kit\String\CPK.String.Distance.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\String\CPK.String.Escape.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\String\CPK.String.PadEnd.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\String\CPK.String.PadStart.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3683,6 +3901,10 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Kit\Type\CPK.Type.IsInteger.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Kit\Type\CPK.Type.IsNil.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -3735,7 +3957,15 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="Kit\UI\Control\CPK.UI.Control.Resize.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="Kit\UI\Control\CPK.UI.Control.Show.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\UI\Control\Instance\CPK.UI.Control.Instance.Error.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3744,6 +3974,10 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Kit\UI\Control\Instance\CPK.UI.Control.Instance.Make.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\Util\CPK.Util.Benchmark.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3760,6 +3994,18 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="Kit\Util\CPK.Util.StringBuilder.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\Util\Format\CPK.Util.Format.ByteSize.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\Util\Format\CPK.Util.Format.Duration.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="Kit\Util\Format\CPK.Util.Format.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3787,6 +4033,14 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
+    <Content Include="LUA\DiploCorner.lua">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="LUA\DiploCorner.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
     <Content Include="LUA\DiploList.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
@@ -3804,6 +4058,10 @@
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
     <Content Include="LUA\NotificationPanel.xml">
+      <SubType>Lua</SubType>
+      <ImportIntoVFS>True</ImportIntoVFS>
+    </Content>
+    <Content Include="LUA\PlotHelpManager.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
@@ -3843,19 +4101,7 @@
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>
-    <Content Include="LUA\YieldIconManager.lua">
-      <SubType>Lua</SubType>
-      <ImportIntoVFS>True</ImportIntoVFS>
-    </Content>
-    <Content Include="LUA\YieldIconManager.xml">
-      <SubType>Lua</SubType>
-      <ImportIntoVFS>True</ImportIntoVFS>
-    </Content>
     <Content Include="LUA\Includes\CityStateStatusHelper.lua">
-      <SubType>Lua</SubType>
-      <ImportIntoVFS>True</ImportIntoVFS>
-    </Content>
-    <Content Include="LUA\Includes\TradeLogic.lua">
       <SubType>Lua</SubType>
       <ImportIntoVFS>True</ImportIntoVFS>
     </Content>

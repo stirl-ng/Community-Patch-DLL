@@ -234,8 +234,8 @@ public:
 	int GetNumNaturalWondersDiscovered() const;
 	void ChangeNumNaturalWondersDiscovered(int iChange);
 
-	int GetNumLandmarksBuilt() const;
-	void ChangeNumLandmarksBuilt(int iChange);
+	int GetHappinessFromImprovements() const;
+	void ChangeHappinessFromImprovements(int iChange);
 
 	bool isHasMet(TeamTypes eIndex) const;
 	void makeHasMet(TeamTypes eIndex, bool bSuppressMessages);
@@ -517,7 +517,7 @@ protected:
 	int m_iDefensiveEmbarkCount;
 	int m_iEmbarkedAllWaterPassageCount;
 	int m_iNumNaturalWondersDiscovered;
-	int m_iNumLandmarksBuilt;
+	int m_iHappinessFromImprovements;
 	int m_iBestPossibleRoute;
 	int m_iNumMinorCivsAttacked;
 	int m_iBuildingDefenseModifier;
@@ -635,10 +635,10 @@ protected:
 	void cancelDefensivePacts();
 	void announceTechToPlayers(TechTypes eIndex, bool bPartial = false);
 
-	void DoNowAtWarOrPeace(TeamTypes eTeam, bool bWar);
+	void DoNowAtWarOrPeace(TeamTypes eTeam, bool bWar, vector<pair<PlayerTypes, TeamTypes>>* pvMinorCivsDeferredPeaceUpdate = NULL);
 
 	void DoDeclareWar(PlayerTypes eOriginatingPlayer, bool bAggressor, TeamTypes eTeam, bool bDefensivePact, TeamTypes eDefensivePactTeam = NO_TEAM, bool bMinorAllyPact = false);
-	void DoMakePeace(PlayerTypes eOriginatingPlayer, bool bPacifier, TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification = false);
+	void DoMakePeace(PlayerTypes eOriginatingPlayer, bool bPacifier, TeamTypes eTeam, bool bBumpUnits, bool bSuppressNotification = false, bool bIgnoreVassalsAndAllies = false, vector<pair<PlayerTypes, TeamTypes>>* pvMinorCivsDeferredPeaceUpdate = NULL);
 };
 
 // helper for accessing static functions

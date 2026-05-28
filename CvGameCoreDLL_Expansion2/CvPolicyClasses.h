@@ -285,6 +285,8 @@ public:
 	int GetYieldFromBirthCapital(int i) const;
 	int GetYieldFromBirthRetroactive(int i) const;
 	int GetYieldFromBirthCapitalRetroactive(int i) const;
+    int GetInstantYield(int i) const;
+    int* GetInstantYieldArray() const; 
 	int GetYieldFromConstruction(int i) const;
 	int GetYieldFromWorldWonderConstruction(int i) const;
 	int GetYieldFromTech(int i) const;
@@ -419,7 +421,7 @@ public:
 	int GetHappinessPerActiveTradeRoute() const;
 	int GetNeedsModifierFromAirUnits() const;
 	int GetFlatDefenseFromAirUnits() const;
-	int GetPuppetYieldPenaltyMod() const;
+	int GetPuppetYieldAndSupplyModifierChange() const;
 	int GetConquestPerEraBuildingProductionMod() const;
 	int GetAdmiralLuxuryBonus() const;
 
@@ -721,6 +723,7 @@ private:
 	int* m_piYieldFromBirthCapital;
 	int* m_piYieldFromBirthRetroactive;
 	int* m_piYieldFromBirthCapitalRetroactive;
+    int* m_piInstantYield;
 	int* m_piYieldFromConstruction;
 	int* m_piYieldFromWorldWonderConstruction;
 	int* m_piYieldFromTech;
@@ -845,7 +848,7 @@ private:
 	bool m_bCSResourcesForMonopolies;
 	int m_iNeedsModifierFromAirUnits;
 	int m_iFlatDefenseFromAirUnits;
-	int m_iPuppetYieldPenaltyMod;
+	int m_iPuppetYieldAndSupplyModifierChange;
 	int m_iConquestPerEraBuildingProductionMod;
 	int m_iAdmiralLuxuryBonus;
 #if defined(HH_MOD_API_TRADEROUTE_MODIFIERS)
@@ -1005,7 +1008,6 @@ enum CLOSED_ENUM PolicyModifierType
 	POLICYMOD_TRADE_CAPITAL_MODIFIER,
 	POLICYMOD_TRADE_MODIFIER,
 	POLICYMOD_LIBERATION_BONUS,
-	POLICYMOD_PUPPET_BONUS,
     POLICYMOD_SHARED_RELIGION_TOURISM_MODIFIER,
     POLICYMOD_TRADE_ROUTE_TOURISM_MODIFIER,
 	POLICYMOD_OPEN_BORDERS_TOURISM_MODIFIER,

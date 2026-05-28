@@ -314,6 +314,9 @@ public:
 	bool isDesynced() const;
 	void setDesynced(bool bNewValue);
 
+	bool isHumanAIPath() const;
+	void setHumanAIPath(bool bNewValue);
+
 	bool isFinalInitialized() const;
 	void setFinalInitialized(bool bNewValue);
 
@@ -350,8 +353,6 @@ public:
 
 	int GetStartingMilitaryRating() const;
 	int GetMinimumHumanMilitaryRating() const;
-	int ComputeRatingStrengthAdjustment(PlayerTypes ePlayer, PlayerTypes ePerceivingPlayer) const;
-	int ComputeAverageMajorMilitaryRating(PlayerTypes ePerceivingPlayer, PlayerTypes eExcludedPlayer = NO_PLAYER) const;
 
 	// Global Diplomacy AI Options
 	bool IsVictoryCompetitionEnabled() const;
@@ -457,7 +458,7 @@ public:
 	const CvString& getName();
 	void setName(const char* szName);
 
-	bool isDestroyedCityName(CvString& szName) const;
+	bool isDestroyedCityName(const CvString& szName) const;
 	void addDestroyedCityName(const CvString& szName);
 
 	bool isGreatPersonBorn(CvString& szName) const;
@@ -789,6 +790,7 @@ public:
 
 	void SetCurrentVisibilityPlayer(PlayerTypes ePlayer);
 	PlayerTypes GetCurrentVisibilityPlayer() const;
+	TeamTypes GetCurrentVisibilityTeam() const;
 
 	//------------------------------------------------------------
 	PlayerTypes GetAutoPlayReturnPlayer() const { return m_eAIAutoPlayReturnPlayer;	}
@@ -867,10 +869,12 @@ protected:
 	bool m_bTunerEverConnected;
 	bool m_bDynamicTurnsSimultMode;		//if playing dynamic turn mode, are we currently running simultaneous turns?
 	bool m_bIsDesynced; // whether the game was desynced or not as a result of the very last sync
+	bool m_bHumanAIPath; // debug/experimental: allow stop nodes in pathfinding for human players
 	PlayerTypes m_eObserverUIOverridePlayer;
 	PlayerTypes m_eWaitDiploPlayer;
 	TechTypes m_eTechAstronomy;
 	PlayerTypes m_eCurrentVisibilityPlayer;
+	TeamTypes m_eCurrentVisibilityTeam;
 
 	bool m_bFOW;
 
