@@ -2612,10 +2612,55 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				os << ",\"can_move\":" << (pUnit->canMove() ? "true" : "false");
 				os << ",\"is_combat_unit\":" << (pUnit->IsCombatUnit() ? "true" : "false");
 
+				os << ",\"is_embarked\":" << (pUnit->isEmbarked() ? "true" : "false");
+
+				// Activity state
+				ActivityTypes eActivity = pUnit->GetActivityType();
+				const char* actStr = "AWAKE";
+				switch (eActivity)
+				{
+					case ACTIVITY_HOLD:      actStr = "HOLD"; break;
+					case ACTIVITY_SLEEP:     actStr = "SLEEP"; break;
+					case ACTIVITY_HEAL:      actStr = "HEAL"; break;
+					case ACTIVITY_SENTRY:    actStr = "SENTRY"; break;
+					case ACTIVITY_INTERCEPT: actStr = "INTERCEPT"; break;
+					case ACTIVITY_MISSION:   actStr = "MISSION"; break;
+					default: break;
+				}
+				os << ",\"activity\":\"" << actStr << "\"";
+
+				if (eActivity == ACTIVITY_MISSION)
+				{
+					const MissionData* pMission = pUnit->GetHeadMissionData();
+					if (pMission != NULL)
+					{
+						CvMissionInfo* pMissionInfo = GC.getMissionInfo(pMission->eMissionType);
+						if (pMissionInfo != NULL)
+							os << ",\"mission\":\"" << PipeJson::Escape(pMissionInfo->GetType()) << "\"";
+
+						if (pMission->eMissionType == CvTypes::getMISSION_MOVE_TO() || pMission->eMissionType == CvTypes::getMISSION_ROUTE_TO())
+							os << ",\"mission_target\":{\"x\":" << pMission->iData1 << ",\"y\":" << pMission->iData2 << "}";
+						else if (pMission->eMissionType == CvTypes::getMISSION_BUILD())
+						{
+							CvBuildInfo* pBuildInfo = GC.getBuildInfo((BuildTypes)pMission->iData1);
+							if (pBuildInfo != NULL)
+								os << ",\"build_name\":\"" << PipeJson::Escape(pBuildInfo->GetDescription()) << "\"";
+						}
+					}
+				}
+
 				// Add plot info if available
 				CvPlot* pPlot = pUnit->plot();
 				if (pPlot != NULL)
 				{
+					int plotOwner = static_cast<int>(pPlot->getOwner());
+					os << ",\"territory_owner\":" << plotOwner;
+
+					bool isTrespassing = false;
+					if (plotOwner != -1 && plotOwner != playerId)
+						isTrespassing = !GET_TEAM(pPlot->getTeam()).IsAllowsOpenBordersToTeam(kPlayer.getTeam());
+					os << ",\"is_trespassing\":" << (isTrespassing ? "true" : "false");
+
 					os << ",\"plot\":{";
 					os << "\"terrain_type\":" << static_cast<int>(pPlot->getTerrainType());
 					os << ",\"feature_type\":" << static_cast<int>(pPlot->getFeatureType());
