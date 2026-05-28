@@ -451,7 +451,7 @@
     <File md5="0449E6D83F82B76884343ABAAB8828C7" import="1">Core Files/Overrides/GreatWorkPopup.lua</File>
     <File md5="A0B9DBA07F98E3B8D050AAD5A247EFCB" import="1">Core Files/Overrides/HappinessInfo.lua</File>
     <File md5="3F0909308CAEA0B4F8CD7073E4DF6047" import="1">Core Files/Overrides/HappinessInfo.xml</File>
-    <File md5="962424F5292F968672707CDC516E1FA3" import="1">Core Files/Overrides/InGame.lua</File>
+    <File md5="BBAC1CFA8AF4CFF81551AEAE94898657" import="1">Core Files/Overrides/InGame.lua</File>
     <File md5="7DF4AF6E9D5F16CD06D0CD576615869F" import="1">Core Files/Overrides/LeagueOverview.lua</File>
     <File md5="D1B2B6362725A779E49BAD0C8366DE6A" import="1">Core Files/Overrides/LeagueOverview.xml</File>
     <File md5="B273A884E433EFF32B0435FBCAD81D4D" import="1">Core Files/Overrides/MiniMapPanel.lua</File>
@@ -719,6 +719,7 @@
     <File md5="024C203421D4F4366116889662469E63" import="1">Kit/Util/CPK.Util.StringBuilder.lua</File>
     <File md5="58BEB98F80F9E2802FD277CD9D59BF5B" import="1">LUA/CityBannerManager.lua</File>
     <File md5="3377B347687C3915177BFE3C72B72F99" import="1">LUA/CityBannerManager.xml</File>
+    <File md5="8290714A0105D711079E6A9BC43349BC" import="1">LUA/CityStateGreetingPopup.lua</File>
     <File md5="ED8CCC7A358D1EDDCFE7444E11D45CAF" import="1">LUA/CityStateDiploPopup.lua</File>
     <File md5="C17B724D01DF1DCFF71B5ACD743A81DF" import="1">LUA/CityView_small.xml</File>
     <File md5="BF3582B89D1F3FDEF55EA0096FBC043C" import="1">LUA/CityView.lua</File>

@@ -1303,3 +1303,8 @@ for addin in Modding.GetActivatedModEntryPoints("InGameUIAddin") do
 
 	table.insert(g_uiAddins, ContextPtr:LoadNewContext(path));
 end
+
+-- Debug: log every popup type so unhandled blockers are easy to identify in Lua.log
+Events.SerialEventGameMessagePopup.Add(function(popupInfo)
+	print("[POPUP] type=" .. tostring(popupInfo.Type) .. " data1=" .. tostring(popupInfo.Data1));
+end);
