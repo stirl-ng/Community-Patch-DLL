@@ -426,6 +426,7 @@
     <File md5="5CE8AADCD96BC892206D0738E4879395" import="1">Core Files/New UI/RecentEventsInfo.lua</File>
     <File md5="B9265F59D7CFB7857DD3D8C308F5D7D0" import="1">Core Files/New UI/RecentEventsInfo.xml</File>
     <File md5="EF335289B8AA94703BFFFE012CDFB931" import="1">Core Files/Overrides/ActionInfoPanel.lua</File>
+    <File md5="7DCA4B774D3139D83C9B4003F20A0E1A" import="1">Core Files/Overrides/ChooseGoodyHutReward.lua</File>
     <File md5="711F9739119FAF766456E3351E2C8A4D" import="1">Core Files/Overrides/ChoosePantheonPopup.lua</File>
     <File md5="4F974C77D09B75A2FC35D43BEAE186AA" import="1">Core Files/Overrides/ChoosePantheonPopup.xml</File>
     <File md5="1A1C7C6E8712007257757F2AFEE31FAB" import="1">Core Files/Overrides/ChooseReligionPopup.lua</File>
