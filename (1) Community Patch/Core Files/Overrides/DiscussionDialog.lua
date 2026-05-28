@@ -258,11 +258,26 @@ function LeaderMessageHandler( iPlayer, iDiploUIState, szLeaderMessage, iAnimati
 	end
     
     if (bMyMode) then
-    
+
+        -- When the pipe is active, send the diplomatic event as a notification and skip
+        -- showing the popup.  Keeping isDiploActive() == false lets CvGame::update()
+        -- call doTurnPostDiplomacy() immediately instead of blocking indefinitely.
+        if Game.SendPipeMessage then
+            local safeMsg = szLeaderMessage:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n')
+            local aiName = Players[iPlayer]:GetName():gsub('\\', '\\\\'):gsub('"', '\\"')
+            local json = string.format(
+                '{"type":"diplomatic_message","player_id":%d,"from_player_id":%d,"from_player_name":"%s","diplo_state":%d,"message":"%s","turn":%d}',
+                Game.GetActivePlayer(), iPlayer, aiName, iDiploUIState, safeMsg, Game.GetGameTurn()
+            )
+            Game.SendPipeMessage(json)
+            print("DiscussionDialog: sent diplo event " .. iDiploUIState .. " to pipe, suppressing popup")
+            return
+        end
+
         if( ContextPtr:IsHidden() ) then
     	    UIManager:QueuePopup( ContextPtr, PopupPriority.LeaderDiscuss );
 	    end
-		
+
 		print("Handling LeaderMessage: " .. iDiploUIState .. ", ".. szLeaderMessage .. strExtra);
 		
 		Controls.LeaderSpeech:SetText( szLeaderMessage .. strExtra );
