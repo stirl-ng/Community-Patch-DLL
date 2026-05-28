@@ -770,7 +770,19 @@ PopupLayouts[ButtonPopupTypes.BUTTONPOPUP_DECLAREWARMOVE] = function(popupInfo)
 	-- Declaring war by entering player's lands
 	if (plot and plot:GetTeam() == eRivalTeam and (not Teams[eRivalTeam]:IsMinorCiv() or plot:IsCity())) then
 		local owner = Players[plot:GetOwner()];
-		
+
+		-- For city-state entry: notify LLM via pipe and cancel move rather than showing blocking popup
+		if (owner:IsMinorCiv()) then
+			local csName = owner:GetCivilizationShortDescription();
+			local json = string.format(
+				'{"type":"territory_war_warning","player_id":%d,"turn":%d,"city_state_name":"%s","city_state_player_id":%d,"tile_x":%d,"tile_y":%d}',
+				Game.GetActivePlayer(), Game.GetGameTurn(), csName:gsub('"', '\\"'), plot:GetOwner(), iX, iY
+			);
+			Game.SendPipeMessage(json);
+			Events.SerialEventGameMessagePopupProcessed.CallImmediate(popupInfo.Type, 0);
+			return false;
+		end
+
 		-- If not a Minor and allowed to make open borders, ask about that
 		if (not owner:IsMinorCiv() and Teams[Game.GetActiveTeam()]:IsOpenBordersTradingAllowedWithTeam(plot:GetTeam())) then
 			popupText = Locale.ConvertTextKey("TXT_KEY_POPUP_DOES_THIS_MEAN_WAR", Teams[eRivalTeam]:GetNameKey());

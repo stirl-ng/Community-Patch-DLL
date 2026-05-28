@@ -445,7 +445,7 @@
     <File md5="BD25A607C525B92906D1AA4D64AF1301" import="1">Core Files/Overrides/ChooseReligionPopup.lua</File>
     <File md5="34BB77BABB7A3A27FFF37AEAADD97547" import="1">Core Files/Overrides/CultureOverview.lua</File>
     <File md5="23B05ACDA5EEE055EACDD2FC103757DF" import="1">Core Files/Overrides/CultureOverview.xml</File>
-    <File md5="B02EA79C1F74248456A842BD53106153" import="1">Core Files/Overrides/DeclareWarPopup.lua</File>
+    <File md5="91E08591EA755448276D4DCE44D305F7" import="1">Core Files/Overrides/DeclareWarPopup.lua</File>
     <File md5="5D74B47C8B98B0F3D4FBC7242DA26ACD" import="1">Core Files/Overrides/DeclareWarPopup.xml</File>
     <File md5="4679C1FEE9E5A6BBD7297CB35E69A63B" import="1">Core Files/Overrides/Demographics.lua</File>
     <File md5="046884A5BD06F3345F3D0CAA314D676F" import="1">Core Files/Overrides/DiploCurrentDeals.xml</File>
@@ -461,6 +461,7 @@
     <File md5="5965201A71E00881AB8639C5D6A79A04" import="1">Core Files/Overrides/EspionageOverview.xml</File>
     <File md5="D8A8BB74144BC653D26E1A07D7A9717E" import="1">Core Files/Overrides/GPList.lua</File>
     <File md5="6C92BD1BC5EA85AF3288482607C3240F" import="1">Core Files/Overrides/GoodyHutPopup.lua</File>
+    <File md5="F99ACEEB38C0F73EF379DE23F6078DA4" import="1">Core Files/Overrides/GoldenAgePopup.lua</File>
     <File md5="0449E6D83F82B76884343ABAAB8828C7" import="1">Core Files/Overrides/GreatWorkPopup.lua</File>
     <File md5="A0B9DBA07F98E3B8D050AAD5A247EFCB" import="1">Core Files/Overrides/HappinessInfo.lua</File>
     <File md5="3F0909308CAEA0B4F8CD7073E4DF6047" import="1">Core Files/Overrides/HappinessInfo.xml</File>
