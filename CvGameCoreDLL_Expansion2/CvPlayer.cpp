@@ -33153,7 +33153,7 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn) // R: bDoTurn default
 					if (getCapitalCity())
 					{
 						CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(getCapitalCity()->plot());
-						GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+						GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 					}
 				}
 			}

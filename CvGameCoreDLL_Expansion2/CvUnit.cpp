@@ -4601,7 +4601,7 @@ void CvUnit::doCommand(CommandTypes eCommand, int iData1, int iData2)
 		if(pPlot != NULL)
 		{
 			CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pPlot);
-			GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+			GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 		}
 	}
 }

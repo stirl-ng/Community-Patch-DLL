@@ -5927,7 +5927,7 @@ void CvGame::cycleCities(bool bForward, bool bAdd)
 			if(pPlot != NULL && pPlot->isActiveVisible())
 			{
 				CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pPlot);
-				GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+				GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 			}
 		}
 	}
@@ -6115,7 +6115,7 @@ bool CvGame::cyclePlotUnits(CvPlot* pPlot, bool bForward, bool bAuto, int iCount
 						if(pUnitPlot != NULL && pUnitPlot->isActiveVisible())
 						{
 							CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pUnitPlot);
-							GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+							GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 						}
 					}
 					return true;
@@ -6145,7 +6145,7 @@ void CvGame::selectionListMove(CvPlot* pPlot, bool bShift)
 	if(pPlot->isActiveVisible())
 	{
 		CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pPlot);
-		GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+		GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 	}
 
 	CvInterfacePtr<ICvUnit1> pSelectedUnit(GC.GetEngineUserInterface()->GetHeadSelectedUnit());
@@ -6376,7 +6376,7 @@ void CvGame::selectUnit(CvUnit* pUnit, bool bClear, bool bToggle, bool bSound)
 		if(pPlot != NULL && pPlot->isActiveVisible())
 		{
 			CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pPlot);
-			GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+			GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 		}
 	}
 }

@@ -1913,7 +1913,7 @@ void CvUnitMission::StartMission(CvUnit* hUnit)
 					if(pPlot != NULL)
 					{
 						CvInterfacePtr<ICvPlot1> pDllPlot = GC.WrapPlotPointer(pPlot);
-						GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_NORMAL);
+						GC.GetEngineUserInterface()->lookAt(pDllPlot.get(), CAMERALOOKAT_CITY_ZOOM_OUT);
 					}
 				}
 			}
