@@ -445,7 +445,7 @@
     <File md5="BD25A607C525B92906D1AA4D64AF1301" import="1">Core Files/Overrides/ChooseReligionPopup.lua</File>
     <File md5="34BB77BABB7A3A27FFF37AEAADD97547" import="1">Core Files/Overrides/CultureOverview.lua</File>
     <File md5="23B05ACDA5EEE055EACDD2FC103757DF" import="1">Core Files/Overrides/CultureOverview.xml</File>
-    <File md5="91E08591EA755448276D4DCE44D305F7" import="1">Core Files/Overrides/DeclareWarPopup.lua</File>
+    <File md5="3E76B4C7397E75BFFBA8BF653B51148E" import="1">Core Files/Overrides/DeclareWarPopup.lua</File>
     <File md5="5D74B47C8B98B0F3D4FBC7242DA26ACD" import="1">Core Files/Overrides/DeclareWarPopup.xml</File>
     <File md5="4679C1FEE9E5A6BBD7297CB35E69A63B" import="1">Core Files/Overrides/Demographics.lua</File>
     <File md5="046884A5BD06F3345F3D0CAA314D676F" import="1">Core Files/Overrides/DiploCurrentDeals.xml</File>
@@ -493,6 +493,7 @@
     <File md5="2E864F44562CA1721134CE33FC7AFBA9" import="1">Core Files/Overrides/TechPanel_small.xml</File>
     <File md5="361A1CDA7D4BD10ED77EEDCE08F796D3" import="1">Core Files/Overrides/TechPanel.lua</File>
     <File md5="F95F5B373DB01636427DAA7C40343462" import="1">Core Files/Overrides/TechPanel.xml</File>
+    <File md5="296E7496872C8DE924C62482054326F9" import="1">Core Files/Overrides/WhosWinningPopup.lua</File>
     <File md5="1B08CA6F85DC650A6872FC71BD259FC7" import="1">Core Files/Overrides/WonderPopup.lua</File>
     <File md5="F5AB9BBAD63869CA12E11710D48CD064" import="1">Core Files/Overrides/WonderPopup.xml</File>
     <File md5="C572C8883D6C7EBFE099569F6D5A5BE5" import="1">Core Files/Overrides/WorldView.lua</File>
