@@ -83,6 +83,10 @@ public:
 	void SendTechResearchedToPipe(PlayerTypes ePlayer, TechTypes eTech, bool bPartial);
 	GameStatePipe& GetGameStatePipe() { return m_kGameStatePipe; }
 
+	// Goody hut reward choice (BUTTONPOPUP_CHOOSE_GOODY_HUT_REWARD). The UI popup is dismissed in Lua;
+	// the choice waits here until the player picks one with the choose_goody_hut_reward command.
+	void SetPendingGoodyHutChoice(PlayerTypes ePlayer, const CvPlot* pPlot, const CvUnit* pUnit, const std::vector<GoodyTypes>& aeGoodies);
+
 	int GetMapScoreMod() const;
 
 	void updateCitySight(bool bIncrement);
@@ -997,6 +1001,20 @@ protected:
 
 	// LLM Pipe Integration
 	GameStatePipe m_kGameStatePipe;
+
+	// Pending goody hut reward choices, oldest first (a unit can pop a second hut before choosing).
+	// Not serialized: like the UI popups they stand in for, they do not survive a save/load.
+	struct PendingGoodyHutChoice
+	{
+		PlayerTypes ePlayer;
+		int iX;
+		int iY;
+		int iUnitID;
+		std::vector<GoodyTypes> aeGoodies;
+	};
+	std::vector<PendingGoodyHutChoice> m_aPendingGoodyHutChoices;
+	const PendingGoodyHutChoice* GetPendingGoodyHutChoice(PlayerTypes ePlayer) const;
+	void AppendGoodyHutChoiceJson(std::ostream& os, const PendingGoodyHutChoice& kChoice) const;
 
 	//----------------------------------------------------------------
 

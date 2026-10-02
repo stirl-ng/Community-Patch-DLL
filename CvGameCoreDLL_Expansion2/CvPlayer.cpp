@@ -13191,6 +13191,8 @@ void CvPlayer::doGoody(CvPlot* pPlot, CvUnit* pUnit)
 				if (GC.getGame().getActivePlayer() == GetID())
 
 				{
+					// LLM integration: record the choice and send the options to the pipe; Lua dismisses the popup
+					GC.getGame().SetPendingGoodyHutChoice(GetID(), pPlot, pUnit, avValidGoodies);
 					CvPopupInfo kPopupInfo(BUTTONPOPUP_CHOOSE_GOODY_HUT_REWARD, GetID(), pUnit->GetID());
 					GC.GetEngineUserInterface()->AddPopup(kPopupInfo);
 					// We are adding a popup that the player must make a choice in, make sure they are not in the end-turn phase.

@@ -1730,6 +1730,87 @@ void CvGame::SendRawMessageToPipe(const char* szMessage)
 }
 
 //	--------------------------------------------------------------------------------
+void CvGame::SetPendingGoodyHutChoice(PlayerTypes ePlayer, const CvPlot* pPlot, const CvUnit* pUnit, const std::vector<GoodyTypes>& aeGoodies)
+{
+	PendingGoodyHutChoice kChoice;
+	kChoice.ePlayer = ePlayer;
+	kChoice.iX = pPlot->getX();
+	kChoice.iY = pPlot->getY();
+	kChoice.iUnitID = pUnit ? pUnit->GetID() : -1;
+	// The caller's list is weighted (goodies repeat); offer each one once.
+	for (size_t i = 0; i < aeGoodies.size(); i++)
+	{
+		if (std::find(kChoice.aeGoodies.begin(), kChoice.aeGoodies.end(), aeGoodies[i]) == kChoice.aeGoodies.end())
+			kChoice.aeGoodies.push_back(aeGoodies[i]);
+	}
+	m_aPendingGoodyHutChoices.push_back(kChoice);
+
+#if defined(_WIN32)
+	if (!m_kGameStatePipe.IsRunning())
+		return;
+
+	std::ostringstream payload;
+	payload << "{\"type\":\"popup_choice_needed\",\"popup_type\":\"choose_goody_hut_reward\"";
+	payload << ",\"game_id\":" << CvPreGame::mapRandomSeed();
+	payload << ",\"session_id\":" << m_kGameStatePipe.GetSessionId();
+	payload << ",\"player_id\":" << static_cast<int>(ePlayer);
+	payload << ",\"turn\":" << getGameTurn();
+	payload << ",";
+	AppendGoodyHutChoiceJson(payload, kChoice);
+	payload << "}";
+	m_kGameStatePipe.SendMessage(payload.str());
+#endif
+}
+
+//	--------------------------------------------------------------------------------
+const CvGame::PendingGoodyHutChoice* CvGame::GetPendingGoodyHutChoice(PlayerTypes ePlayer) const
+{
+	for (size_t i = 0; i < m_aPendingGoodyHutChoices.size(); i++)
+	{
+		if (m_aPendingGoodyHutChoices[i].ePlayer == ePlayer)
+			return &m_aPendingGoodyHutChoices[i];
+	}
+	return NULL;
+}
+
+//	--------------------------------------------------------------------------------
+// Goody infos are not cached in CvGlobals; load from the database like CvPlayer::canReceiveGoody
+static bool LoadGoodyInfo(GoodyTypes eGoody, CvGoodyInfo& kGoodyInfo)
+{
+	Database::SingleResult kResult;
+	if (!DB.SelectAt(kResult, "GoodyHuts", eGoody))
+		return false;
+	kGoodyInfo.CacheResult(kResult);
+	return true;
+}
+
+//	--------------------------------------------------------------------------------
+// Writes "unit_id":..,"x":..,"y":..,"options":[{"goody_id":..,"type":"GOODY_...","name":"..."}] (no braces)
+void CvGame::AppendGoodyHutChoiceJson(std::ostream& os, const PendingGoodyHutChoice& kChoice) const
+{
+	os << "\"unit_id\":" << kChoice.iUnitID;
+	os << ",\"x\":" << kChoice.iX << ",\"y\":" << kChoice.iY;
+	os << ",\"options\":[";
+	for (size_t i = 0; i < kChoice.aeGoodies.size(); i++)
+	{
+		CvGoodyInfo kGoodyInfo;
+		if (i > 0)
+			os << ",";
+		os << "{\"goody_id\":" << static_cast<int>(kChoice.aeGoodies[i]);
+		if (LoadGoodyInfo(kChoice.aeGoodies[i], kGoodyInfo))
+		{
+			const char* szDesc = kGoodyInfo.GetChooseDesc();
+			if (szDesc == NULL || szDesc[0] == '\0')
+				szDesc = kGoodyInfo.GetDescriptionKey();
+			os << ",\"type\":\"" << PipeJson::Escape(kGoodyInfo.GetType()) << "\"";
+			os << ",\"name\":\"" << PipeJson::Escape(GetLocalizedText(szDesc).c_str()) << "\"";
+		}
+		os << "}";
+	}
+	os << "]";
+}
+
+//	--------------------------------------------------------------------------------
 void CvGame::SendDiplomaticMessageToPipe(PlayerTypes ePlayer, DiploUIStateTypes eDiploUIState, const char* szLeaderMessage, LeaderheadAnimationTypes eAction, int iData1, const CvDeal* pDeal)
 {
 #if defined(_WIN32)
@@ -3290,6 +3371,22 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				return;
 			}
 
+			// A goody hut reward choice is a modal popup for a human; the turn cannot end until it is made
+			if (const PendingGoodyHutChoice* pGoodyChoice = GetPendingGoodyHutChoice(activePlayer))
+			{
+				os << "{\"type\":\"error\",\"code\":\"CANNOT_END_TURN\",\"message\":\"A goody hut reward must be chosen first (choose_goody_hut_reward)\"";
+				os << ",\"blocking_type\":\"GOODY_HUT_CHOICE\",\"goody_hut_choice\":{";
+				AppendGoodyHutChoiceJson(os, *pGoodyChoice);
+				os << "}";
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
 			// Check if we can end the turn
 			if (!GC.GetEngineUserInterface()->canEndTurn())
 			{
@@ -3414,6 +3511,22 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				return;
 			}
 
+			// A goody hut reward choice is a modal popup for a human; the turn cannot end until it is made
+			if (const PendingGoodyHutChoice* pGoodyChoice = GetPendingGoodyHutChoice(activePlayer))
+			{
+				os << "{\"type\":\"error\",\"code\":\"CANNOT_FORCE_END_TURN\",\"message\":\"A goody hut reward must be chosen first (choose_goody_hut_reward)\"";
+				os << ",\"blocking_type\":\"GOODY_HUT_CHOICE\",\"goody_hut_choice\":{";
+				AppendGoodyHutChoiceJson(os, *pGoodyChoice);
+				os << "}";
+				if (!requestId.empty())
+				{
+					os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+				}
+				os << "}";
+				m_kGameStatePipe.SendMessage(os.str());
+				return;
+			}
+
 			// Force end turn only works if there are no blockers, or only unit blockers
 			EndTurnBlockingTypes eBlock = kActivePlayer.GetEndTurnBlockingType();
 			if (eBlock != NO_ENDTURN_BLOCKING_TYPE && eBlock != ENDTURN_BLOCKING_UNITS)
@@ -3490,6 +3603,18 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 					os << "}";
 					blockerCount++;
 				}
+			}
+
+			// Goody hut reward choices waiting on this player
+			for (size_t iChoice = 0; iChoice < m_aPendingGoodyHutChoices.size(); iChoice++)
+			{
+				if (m_aPendingGoodyHutChoices[iChoice].ePlayer != ePlayer)
+					continue;
+				if (blockerCount > 0) os << ",";
+				os << "{\"type\":\"GOODY_HUT_CHOICE\",";
+				AppendGoodyHutChoiceJson(os, m_aPendingGoodyHutChoices[iChoice]);
+				os << "}";
+				blockerCount++;
 			}
 
 			// Add unit-based blockers
@@ -4481,6 +4606,60 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			return;
 		}
 
+		else if (msgType == "choose_goody_hut_reward")
+		{
+			// Pick the reward for the oldest pending goody hut choice of the active player
+			std::string requestId = msg.get("request_id").asString();
+			int goodyId = msg.get("goody_id").asInt(-1);
+			PlayerTypes ePlayer = getActivePlayer();
+
+			std::ostringstream os;
+			os << "{\"type\":\"choose_goody_hut_reward_result\"";
+			if (!requestId.empty())
+				os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+
+			std::vector<PendingGoodyHutChoice>::iterator it = m_aPendingGoodyHutChoices.begin();
+			while (it != m_aPendingGoodyHutChoices.end() && it->ePlayer != ePlayer)
+				++it;
+
+			if (it == m_aPendingGoodyHutChoices.end())
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"NO_PENDING_CHOICE\",\"message\":\"No goody hut reward is waiting to be chosen\"}";
+			}
+			else if (std::find(it->aeGoodies.begin(), it->aeGoodies.end(), (GoodyTypes)goodyId) == it->aeGoodies.end())
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_GOODY\",\"message\":\"goody_id is not one of the offered options\"},";
+				AppendGoodyHutChoiceJson(os, *it);
+			}
+			else
+			{
+				CvPlayerAI& kPlayer = GET_PLAYER(ePlayer);
+				CvPlot* pPlot = GC.getMap().plot(it->iX, it->iY);
+				CvUnit* pUnit = kPlayer.getUnit(it->iUnitID);
+				GoodyTypes eGoody = (GoodyTypes)goodyId;
+				CvGoodyInfo kGoodyInfo;
+
+				// Same path as the UI popup (CvDllNetMessageHandler::ResponseGoodyChoice)
+				m_aPendingGoodyHutChoices.erase(it);
+				kPlayer.receiveGoody(pPlot, eGoody, pUnit);
+
+				os << ",\"success\":true,\"goody_id\":" << goodyId;
+				if (LoadGoodyInfo(eGoody, kGoodyInfo))
+					os << ",\"type\":\"" << PipeJson::Escape(kGoodyInfo.GetType()) << "\"";
+
+				const PendingGoodyHutChoice* pNext = GetPendingGoodyHutChoice(ePlayer);
+				if (pNext)
+				{
+					os << ",\"next_choice\":{";
+					AppendGoodyHutChoiceJson(os, *pNext);
+					os << "}";
+				}
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendMessage(os.str());
+			return;
+		}
 		else if (msgType == "declare_war")
 		{
 			// Declare war on a player
