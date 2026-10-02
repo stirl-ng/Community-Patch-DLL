@@ -377,6 +377,8 @@ CvGame::CvGame() :
 	, m_fCurrentTurnTimerPauseDelta(0.f)
 	, m_sentAutoMoves(false)
 	, m_bForceEndingTurn(false)
+	, m_iLastTurnStartTurn(-1)
+	, m_eLastTurnStartPlayer(NO_PLAYER)
 	, m_pDiploResponseQuery(NULL)
 	, m_bFOW(true)
 #ifdef EA_EVENT_GAME_SAVE
@@ -1323,6 +1325,17 @@ void CvGame::DoGameStarted()
 }
 
 //	--------------------------------------------------------------------------------
+// Called when the active player's turn begins: after the AI has moved and the player's own
+// turn processing is done, so every notification for the turn is already on the pipe.
+void CvGame::SendActivePlayerTurnStartToPipe()
+{
+	if (m_iLastTurnStartTurn == getGameTurn() && m_eLastTurnStartPlayer == getActivePlayer())
+		return;
+
+	SendTurnStartToPipe();
+}
+
+//	--------------------------------------------------------------------------------
 void CvGame::SendTurnStartToPipe()
 {
 	if (!m_kGameStatePipe.IsRunning())
@@ -1428,6 +1441,8 @@ void CvGame::SendTurnStartToPipe()
 	payload << "}}";
 
 	m_kGameStatePipe.SendMessage(payload.str());
+	m_iLastTurnStartTurn = getGameTurn();
+	m_eLastTurnStartPlayer = eActivePlayer;
 	m_kGameStatePipe.Log("Sent turn_start for turn %d, player %d, game_id=%u, session_id=%u",
 		getGameTurn(), static_cast<int>(eActivePlayer), CvPreGame::mapRandomSeed(), m_kGameStatePipe.GetSessionId());
 }
@@ -4802,6 +4817,8 @@ void CvGame::uninit()
 	SAFE_DELETE(m_pAdvisorRecommender);
 
 	m_bForceEndingTurn = false;
+	m_iLastTurnStartTurn = -1;
+	m_eLastTurnStartPlayer = NO_PLAYER;
 
 	m_lastTurnAICivsProcessed = -1;
 	m_processPlayerAutoMoves = false;
@@ -12252,8 +12269,8 @@ void CvGame::doTurn()
 		}
 	}
 
-	// Notify LLM pipe that new turn has started
-	SendTurnStartToPipe();
+	// turn_start is not sent here: AI units have not moved yet and the human is not active.
+	// CvPlayer::setTurnActive sends it when the active player's turn begins.
 }
 
 //	--------------------------------------------------------------------------------

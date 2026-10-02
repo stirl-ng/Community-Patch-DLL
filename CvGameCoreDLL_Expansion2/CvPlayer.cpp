@@ -33279,6 +33279,9 @@ void CvPlayer::setTurnActive(bool bNewValue, bool bDoTurn) // R: bDoTurn default
 
 				// slewis - added this so the tutorial knows when a turn begins
 				DLLUI->PublishActivePlayerTurnStart();
+
+				// Notify LLM pipe that the active player's turn has started
+				kGame.SendActivePlayerTurnStartToPipe();
 			}
 			else if(isHuman() && kGame.isGameMultiPlayer())
 			{

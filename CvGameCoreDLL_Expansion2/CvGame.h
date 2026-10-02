@@ -72,6 +72,7 @@ public:
 	// LLM Pipe Integration
 	void HandlePipeCommand(const std::string& command);
 	void SendTurnStartToPipe();
+	void SendActivePlayerTurnStartToPipe();
 	void SendTurnCompleteToPipe();
 	void SendHeartbeatToPipe();
 	void SendGameStartInfoToPipe();
@@ -1001,6 +1002,9 @@ protected:
 
 	// LLM Pipe Integration
 	GameStatePipe m_kGameStatePipe;
+	// Last turn_start sent, so the player activation and the pipe-connect path don't send the same turn twice.
+	int m_iLastTurnStartTurn;
+	PlayerTypes m_eLastTurnStartPlayer;
 
 	// Pending goody hut reward choices, oldest first (a unit can pop a second hut before choosing).
 	// Not serialized: like the UI popups they stand in for, they do not survive a save/load.
