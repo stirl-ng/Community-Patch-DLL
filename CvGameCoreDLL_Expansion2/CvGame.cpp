@@ -1966,6 +1966,86 @@ static CvUnit* FindAndValidateUnitForPipe(int unitId, std::ostringstream& os, Pl
 }
 
 //	--------------------------------------------------------------------------------
+// Writes {"promotion_id":..,"type":"PROMOTION_...","name":"..."[,"help":"..."]}
+static void AppendPromotionJson(std::ostream& os, PromotionTypes ePromotion, bool bIncludeHelp)
+{
+	CvPromotionEntry* pkInfo = GC.getPromotionInfo(ePromotion);
+	os << "{\"promotion_id\":" << static_cast<int>(ePromotion);
+	if (pkInfo != NULL)
+	{
+		os << ",\"type\":\"" << PipeJson::Escape(pkInfo->GetType()) << "\"";
+		os << ",\"name\":\"" << PipeJson::Escape(pkInfo->GetDescription()) << "\"";
+		const char* szHelp = pkInfo->GetHelp();
+		if (bIncludeHelp && szHelp != NULL && szHelp[0] != '\0')
+			os << ",\"help\":\"" << PipeJson::Escape(GetLocalizedText(szHelp).c_str()) << "\"";
+	}
+	os << "}";
+}
+
+//	--------------------------------------------------------------------------------
+// Writes "unit_id":..,"unit_name":..,"x":..,"y":..,"experience":..,"experience_needed":..,"level":..,
+// "promotion_ready":..,"promotions":[..],"available_promotions":[..] (no braces).
+// available_promotions is what the unit can choose right now, so it is empty unless promotion_ready.
+static void AppendUnitPromotionsJson(std::ostream& os, const CvUnit* pUnit)
+{
+	CvString unitName = pUnit->getName();
+	os << "\"unit_id\":" << pUnit->GetID();
+	os << ",\"unit_name\":\"" << PipeJson::Escape(unitName.c_str()) << "\"";
+	os << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY();
+	os << ",\"experience\":" << (pUnit->getExperienceTimes100() / 100);
+	os << ",\"experience_needed\":" << pUnit->experienceNeeded();
+	os << ",\"level\":" << pUnit->getLevel();
+	os << ",\"promotion_ready\":" << (pUnit->isPromotionReady() ? "true" : "false");
+
+	os << ",\"promotions\":[";
+	bool bFirst = true;
+	for (int iI = 0; iI < GC.getNumPromotionInfos(); iI++)
+	{
+		PromotionTypes ePromotion = (PromotionTypes)iI;
+		if (GC.getPromotionInfo(ePromotion) == NULL || !pUnit->isHasPromotion(ePromotion))
+			continue;
+		if (!bFirst) os << ",";
+		AppendPromotionJson(os, ePromotion, false);
+		bFirst = false;
+	}
+	os << "]";
+
+	os << ",\"available_promotions\":[";
+	bFirst = true;
+	for (int iI = 0; iI < GC.getNumPromotionInfos(); iI++)
+	{
+		PromotionTypes ePromotion = (PromotionTypes)iI;
+		if (!pUnit->canPromote(ePromotion, -1))
+			continue;
+		if (!bFirst) os << ",";
+		AppendPromotionJson(os, ePromotion, true);
+		bFirst = false;
+	}
+	os << "]";
+}
+
+//	--------------------------------------------------------------------------------
+// Writes a JSON array of AppendUnitPromotionsJson objects for every unit of ePlayer that can promote now
+static void AppendPromotionReadyUnitsJson(std::ostream& os, PlayerTypes ePlayer)
+{
+	CvPlayer& kPlayer = GET_PLAYER(ePlayer);
+	os << "[";
+	bool bFirst = true;
+	int iLoop = 0;
+	for (const CvUnit* pUnit = kPlayer.firstUnit(&iLoop); pUnit; pUnit = kPlayer.nextUnit(&iLoop))
+	{
+		if (!pUnit->isPromotionReady() || pUnit->isDelayedDeath())
+			continue;
+		if (!bFirst) os << ",";
+		os << "{";
+		AppendUnitPromotionsJson(os, pUnit);
+		os << "}";
+		bFirst = false;
+	}
+	os << "]";
+}
+
+//	--------------------------------------------------------------------------------
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
 #if defined(_WIN32)
@@ -2423,6 +2503,77 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 			m_kGameStatePipe.SendMessage(os.str());
 			return;
 		}
+		else if (msgType == "get_unit_promotions")
+		{
+			// With unit_id: that unit's XP, promotions, and the promotions it can choose now.
+			// Without: the same for every unit of the active player that can promote now.
+			std::string requestId = msg.get("request_id").asString();
+			int unitId = msg.get("unit_id").asInt(-1);
+
+			std::ostringstream os;
+			os << "{\"type\":\"get_unit_promotions_result\",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+
+			if (unitId >= 0)
+			{
+				CvUnit* pUnit = FindAndValidateUnitForPipe(unitId, os, getActivePlayer());
+				if (pUnit != NULL)
+				{
+					os << ",\"success\":true,\"units\":[{";
+					AppendUnitPromotionsJson(os, pUnit);
+					os << "}]";
+				}
+			}
+			else
+			{
+				os << ",\"success\":true,\"units\":";
+				AppendPromotionReadyUnitsJson(os, getActivePlayer());
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendMessage(os.str());
+			return;
+		}
+		else if (msgType == "promote_unit")
+		{
+			// Choose a promotion for a unit with enough XP (the human's promotion buttons)
+			std::string requestId = msg.get("request_id").asString();
+			int unitId = msg.get("unit_id").asInt();
+			int promotionId = msg.get("promotion_id").asInt(-1);
+
+			std::ostringstream os;
+			os << "{\"type\":\"promote_unit_result\",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"";
+
+			CvUnit* pUnit = FindAndValidateUnitForPipe(unitId, os, getActivePlayer());
+			if (pUnit != NULL)
+			{
+				PromotionTypes ePromotion = (PromotionTypes)promotionId;
+				bool bValidId = promotionId >= 0 && promotionId < GC.getNumPromotionInfos() && GC.getPromotionInfo(ePromotion) != NULL;
+				if (bValidId && pUnit->canPromote(ePromotion, -1))
+				{
+					pUnit->promote(ePromotion, -1);
+
+					os << ",\"success\":true,\"promoted\":";
+					AppendPromotionJson(os, ePromotion, false);
+					os << ",\"unit\":{";
+					AppendUnitPromotionsJson(os, pUnit);
+					os << "}";
+				}
+				else
+				{
+					if (!pUnit->isPromotionReady())
+						os << ",\"success\":false,\"error\":{\"code\":\"PROMOTION_NOT_READY\",\"message\":\"Unit does not have enough experience to promote\"}";
+					else
+						os << ",\"success\":false,\"error\":{\"code\":\"CANNOT_PROMOTE\",\"message\":\"Unit cannot take this promotion; choose one of available_promotions\"}";
+					os << ",\"unit\":{";
+					AppendUnitPromotionsJson(os, pUnit);
+					os << "}";
+				}
+			}
+
+			os << "}";
+			m_kGameStatePipe.SendMessage(os.str());
+			return;
+		}
 		else if (msgType == "get_state")
 		{
 			std::string requestId = msg.get("request_id").asString();
@@ -2705,6 +2856,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				os << ",\"max_hit_points\":" << pUnit->GetMaxHitPoints();
 				os << ",\"experience\":" << (pUnit->getExperienceTimes100() / 100);
 				os << ",\"level\":" << pUnit->getLevel();
+				os << ",\"promotion_ready\":" << (pUnit->isPromotionReady() ? "true" : "false");
 				os << ",\"can_move\":" << (pUnit->canMove() ? "true" : "false");
 				os << ",\"is_combat_unit\":" << (pUnit->IsCombatUnit() ? "true" : "false");
 
@@ -3437,6 +3589,12 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 						}
 					}
 					os << "]";
+				}
+				// For promotion blockers, list the units and the promotions each can choose (promote_unit)
+				else if (eBlockingType == ENDTURN_BLOCKING_UNIT_PROMOTION)
+				{
+					os << ",\"promotion_units\":";
+					AppendPromotionReadyUnitsJson(os, activePlayer);
 				}
 				if (!requestId.empty())
 				{
