@@ -2211,7 +2211,7 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 				{
 					selectUnit(pUnit, bClear, bToggle, bSound);
 					os << ",\"success\":true,\"result\":{\"message\":\"Unit selected\"}";
-					os << ",\"state_delta\":{\"selected_unit\":{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << "}}}";
+					os << ",\"state_delta\":{\"selected_unit\":{\"id\":" << unitId << ",\"x\":" << pUnit->getX() << ",\"y\":" << pUnit->getY() << "}}";
 				}
 				else
 				{
