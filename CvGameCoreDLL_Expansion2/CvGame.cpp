@@ -2045,6 +2045,61 @@ static void AppendPromotionReadyUnitsJson(std::ostream& os, PlayerTypes ePlayer)
 	os << "]";
 }
 
+#if defined(_WIN32)
+//	--------------------------------------------------------------------------------
+// Checks the numeric ID fields of a pipe command before any handler uses them. Handlers cast
+// these to enums and index GET_PLAYER / GC.get*Info with them, and an out-of-range ID from the
+// caller crashed the game (STI-20). -1 stays valid: it means the active player for player IDs
+// and "none" for optional IDs. Non-numbers are left alone; handlers fall back to their default.
+// Returns false and writes an error reply to os for the first bad field.
+static bool ValidatePipeIds(const JsonValue& msg, const std::string& requestId, std::ostringstream& os)
+{
+	struct IdField
+	{
+		const char* szKey;
+		int iCount;
+		bool bPlayer;
+	};
+	const IdField aFields[] =
+	{
+		{ "player_id", MAX_PLAYERS, true },
+		{ "ai_player_id", MAX_PLAYERS, true },
+		{ "liberate_to", MAX_PLAYERS, true },
+		{ "tech_id", GC.getNumTechInfos(), false },
+		{ "policy_id", GC.getNumPolicyInfos(), false },
+		{ "branch_id", GC.getNumPolicyBranchInfos(), false },
+		{ "promotion_id", GC.getNumPromotionInfos(), false },
+		{ "build_type", GC.getNumBuildInfos(), false },
+		{ "religion_id", GC.getNumReligionInfos(), false },
+		{ "belief_id", GC.getNumBeliefInfos(), false },
+		{ "pantheon_belief_id", GC.getNumBeliefInfos(), false },
+		{ "founder_belief_id", GC.getNumBeliefInfos(), false },
+		{ "follower_belief_id", GC.getNumBeliefInfos(), false },
+		{ "bonus_belief_id", GC.getNumBeliefInfos(), false },
+		{ "enhancer_belief_id", GC.getNumBeliefInfos(), false },
+		{ "control_type", NUM_CONTROL_TYPES, false },
+	};
+
+	for (size_t i = 0; i < sizeof(aFields) / sizeof(aFields[0]); i++)
+	{
+		const JsonValue& value = msg.get(aFields[i].szKey);
+		if (!value.isNumber())
+			continue;
+
+		int iValue = value.asInt();
+		if (iValue >= -1 && iValue < aFields[i].iCount)
+			continue;
+
+		os << "{\"type\":\"error\",\"code\":\"" << (aFields[i].bPlayer ? "INVALID_PLAYER_ID" : "INVALID_ARGUMENT") << "\"";
+		os << ",\"message\":\"" << aFields[i].szKey << " " << iValue << " is out of range (valid: -1 to " << (aFields[i].iCount - 1) << ")\"";
+		os << ",\"field\":\"" << aFields[i].szKey << "\"";
+		os << ",\"request_id\":\"" << PipeJson::Escape(requestId) << "\"}";
+		return false;
+	}
+	return true;
+}
+#endif
+
 //	--------------------------------------------------------------------------------
 void CvGame::HandlePipeCommand(const std::string& commandLine)
 {
@@ -2056,6 +2111,13 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 	{
 		// Handle JSON protocol messages
 		std::string msgType = msg.get("type").asString();
+
+		std::ostringstream idError;
+		if (!ValidatePipeIds(msg, msg.get("request_id").asString(), idError))
+		{
+			m_kGameStatePipe.SendMessage(idError.str());
+			return;
+		}
 
 		if (msgType == "move_unit")
 		{
@@ -2594,7 +2656,9 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		else if (msgType == "get_notifications")
 		{
 			std::string requestId = msg.get("request_id").asString();
-			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			int playerId = msg.get("player_id").asInt(-1);
+			if (playerId < 0)
+				playerId = getActivePlayer();
 
 			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
 			CvNotifications* pNotifications = kPlayer.GetNotifications();
@@ -2738,7 +2802,9 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		else if (msgType == "get_player_status")
 		{
 			std::string requestId = msg.get("request_id").asString();
-			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			int playerId = msg.get("player_id").asInt(-1);
+			if (playerId < 0)
+				playerId = getActivePlayer();
 
 			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
 			if (!kPlayer.isAlive())
@@ -2819,7 +2885,9 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		else if (msgType == "get_units")
 		{
 			std::string requestId = msg.get("request_id").asString();
-			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			int playerId = msg.get("player_id").asInt(-1);
+			if (playerId < 0)
+				playerId = getActivePlayer();
 
 			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
 			if (!kPlayer.isAlive())
@@ -2925,7 +2993,9 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 		else if (msgType == "get_cities")
 		{
 			std::string requestId = msg.get("request_id").asString();
-			int playerId = msg.get("player_id").asInt(getActivePlayer());
+			int playerId = msg.get("player_id").asInt(-1);
+			if (playerId < 0)
+				playerId = getActivePlayer();
 
 			CvPlayer& kPlayer = GET_PLAYER((PlayerTypes)playerId);
 			if (!kPlayer.isAlive())
@@ -4572,9 +4642,28 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 
 			PlayerTypes ePlayer = (playerId >= 0) ? (PlayerTypes)playerId : getActivePlayer();
 
+			// item_id indexes a different info table per order type; out of range it crashes canTrain() and friends
+			int iNumItems = 0;
+			switch (orderType)
+			{
+			case ORDER_TRAIN: iNumItems = GC.getNumUnitInfos(); break;
+			case ORDER_CONSTRUCT: iNumItems = GC.getNumBuildingInfos(); break;
+			case ORDER_CREATE: iNumItems = GC.getNumProjectInfos(); break;
+			case ORDER_MAINTAIN: iNumItems = GC.getNumProcessInfos(); break;
+			default: break;
+			}
+
 			if (cityId < 0 || orderType < 0 || itemId < 0)
 			{
 				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_PARAMS\",\"message\":\"Missing required parameters: city_id, order_type, item_id\"}";
+			}
+			else if (iNumItems == 0)
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_ORDER_TYPE\",\"message\":\"order_type must be 0 (train), 1 (construct), 2 (create) or 3 (maintain)\"}";
+			}
+			else if (itemId >= iNumItems)
+			{
+				os << ",\"success\":false,\"error\":{\"code\":\"INVALID_ITEM\",\"message\":\"item_id is out of range for this order_type\"}";
 			}
 			else
 			{
@@ -4885,7 +4974,8 @@ void CvGame::HandlePipeCommand(const std::string& commandLine)
 
 		// Unknown message type
 		std::ostringstream os;
-		os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << PipeJson::Escape(msgType) << "\"}";
+		os << "{\"type\":\"error\",\"code\":\"UNKNOWN_MESSAGE_TYPE\",\"message\":\"Unknown type: " << PipeJson::Escape(msgType) << "\"";
+		os << ",\"request_id\":\"" << PipeJson::Escape(msg.get("request_id").asString()) << "\"}";
 		m_kGameStatePipe.SendMessage(os.str());
 		return;
 	}
